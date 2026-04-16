@@ -1,0 +1,1894 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ワークアウトトラッカー</title>
+<style>
+  :root {
+    --accent: #6C63FF;
+    --accent-light: #8B85FF;
+    --accent-dark: #4F48CC;
+    --bg: #0F0F1A;
+    --bg-card: #1A1A2E;
+    --bg-card2: #16213E;
+    --bg-input: #0D0D1F;
+    --text: #E8E8F0;
+    --text-muted: #8888AA;
+    --border: #2A2A45;
+    --danger: #FF4757;
+    --success: #2ED573;
+    --warning: #FFA502;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+
+  header h1 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent-light), #FF6B9D);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 0.5px;
+  }
+
+  /* ===== NAV TABS ===== */
+  nav {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+    position: sticky;
+    top: 57px;
+    z-index: 99;
+  }
+
+  nav::-webkit-scrollbar { display: none; }
+
+  .tab-btn {
+    flex: 1;
+    min-width: 80px;
+    padding: 14px 8px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color var(--transition), border-bottom var(--transition);
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+  }
+
+  .tab-btn.active {
+    color: var(--accent-light);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab-btn:hover:not(.active) {
+    color: var(--text);
+    background: rgba(108,99,255,0.06);
+  }
+
+  /* ===== MAIN CONTENT ===== */
+  main { padding: 20px; max-width: 900px; margin: 0 auto; }
+
+  .tab-content { display: none; animation: fadeIn 0.3s ease; }
+  .tab-content.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ===== CATEGORY FILTERS ===== */
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .filter-btn {
+    padding: 7px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all var(--transition);
+    font-weight: 500;
+  }
+
+  .filter-btn.active, .filter-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  /* ===== EXERCISE GRID ===== */
+  .exercise-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  .exercise-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    cursor: pointer;
+    transition: all var(--transition);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .exercise-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-light));
+    opacity: 0;
+    transition: opacity var(--transition);
+  }
+
+  .exercise-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(108,99,255,0.2);
+  }
+
+  .exercise-card:hover::before { opacity: 1; }
+
+  .exercise-card h3 {
+    font-size: 0.97rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--text);
+  }
+
+  .category-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  .cat-胸 { background: rgba(255,71,87,0.2); color: #FF6B7A; }
+  .cat-背中 { background: rgba(46,213,115,0.2); color: #2ED573; }
+  .cat-肩 { background: rgba(108,99,255,0.2); color: var(--accent-light); }
+  .cat-腕 { background: rgba(255,165,2,0.2); color: #FFC107; }
+  .cat-脚 { background: rgba(30,144,255,0.2); color: #5BA4FF; }
+  .cat-体幹 { background: rgba(255,107,157,0.2); color: #FF6B9D; }
+  .cat-カスタム { background: rgba(150,150,150,0.2); color: #AAAACC; }
+
+  .muscle-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 8px;
+  }
+
+  .muscle-tag {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-muted);
+  }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition);
+    backdrop-filter: blur(4px);
+  }
+
+  .modal-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .modal {
+    background: var(--bg-card2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    max-width: 560px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    transform: scale(0.92) translateY(20px);
+    transition: transform var(--transition);
+    box-shadow: var(--shadow);
+  }
+
+  .modal-overlay.open .modal {
+    transform: scale(1) translateY(0);
+  }
+
+  .modal-header {
+    padding: 24px 24px 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .modal-header h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: color var(--transition), background var(--transition);
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .modal-close:hover {
+    color: var(--text);
+    background: rgba(255,255,255,0.08);
+  }
+
+  .modal-body { padding: 20px 24px 24px; }
+
+  .modal-section { margin-bottom: 20px; }
+
+  .modal-section label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+  }
+
+  .modal-section p {
+    font-size: 0.92rem;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  .tips-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tips-list li {
+    padding: 8px 12px;
+    background: rgba(108,99,255,0.08);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+
+  .video-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #FF0000, #CC0000);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+    text-decoration: none;
+    width: fit-content;
+  }
+
+  .video-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(255,0,0,0.35);
+  }
+
+  .video-btn svg { flex-shrink: 0; }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    padding-top: 4px;
+  }
+
+  /* ===== BUTTONS ===== */
+  .btn {
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    border: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-light);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(108,99,255,0.4);
+  }
+
+  .btn-secondary {
+    background: var(--bg-card);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: var(--accent);
+    color: var(--accent-light);
+  }
+
+  .btn-danger {
+    background: rgba(255,71,87,0.12);
+    color: var(--danger);
+    border: 1px solid rgba(255,71,87,0.2);
+  }
+
+  .btn-danger:hover {
+    background: var(--danger);
+    color: #fff;
+  }
+
+  .btn-success {
+    background: var(--success);
+    color: #0A1F0A;
+  }
+
+  .btn-success:hover {
+    background: #3AE580;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(46,213,115,0.35);
+  }
+
+  .btn-sm {
+    padding: 6px 14px;
+    font-size: 0.82rem;
+  }
+
+  .btn-icon {
+    padding: 7px 10px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition);
+    font-size: 0.95rem;
+  }
+
+  .btn-icon:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+    background: rgba(255,71,87,0.08);
+  }
+
+  /* ===== ACTIVE WORKOUT ===== */
+  .workout-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .volume-display {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 18px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .volume-display span {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent-light);
+  }
+
+  .workout-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+
+  .workout-empty .icon { font-size: 3rem; margin-bottom: 12px; }
+  .workout-empty p { font-size: 0.95rem; margin-bottom: 20px; }
+
+  .workout-exercise-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+
+  .workout-exercise-header {
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .workout-exercise-header h3 {
+    font-size: 0.97rem;
+    font-weight: 600;
+  }
+
+  .workout-exercise-body { padding: 16px 18px; }
+
+  .set-input-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  .input-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .input-group label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  input[type="number"], select {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    width: 90px;
+    transition: border-color var(--transition);
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input[type="number"]:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  input[type="text"] {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    transition: border-color var(--transition);
+    width: 100%;
+  }
+
+  input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .sets-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.87rem;
+    margin-top: 8px;
+  }
+
+  .sets-table th {
+    text-align: left;
+    padding: 8px 10px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sets-table td {
+    padding: 9px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text);
+  }
+
+  .sets-table tr:last-child td { border-bottom: none; }
+
+  .sets-table .set-num {
+    color: var(--accent-light);
+    font-weight: 600;
+  }
+
+  .set-delete {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all var(--transition);
+  }
+
+  .set-delete:hover { color: var(--danger); }
+
+  /* ===== HISTORY ===== */
+  .history-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+
+  .history-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 14px;
+    overflow: hidden;
+    transition: border-color var(--transition);
+  }
+
+  .history-card:hover { border-color: rgba(108,99,255,0.3); }
+
+  .history-card-header {
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .history-date {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 3px;
+  }
+
+  .history-summary {
+    font-size: 0.93rem;
+    font-weight: 600;
+  }
+
+  .history-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .history-volume {
+    font-size: 0.82rem;
+    color: var(--accent-light);
+    font-weight: 600;
+    background: rgba(108,99,255,0.1);
+    padding: 3px 10px;
+    border-radius: 12px;
+  }
+
+  .chevron {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    transition: transform var(--transition);
+    display: inline-block;
+  }
+
+  .history-card.expanded .chevron { transform: rotate(180deg); }
+
+  .history-details {
+    display: none;
+    padding: 0 18px 18px;
+    border-top: 1px solid var(--border);
+  }
+
+  .history-card.expanded .history-details { display: block; }
+
+  .history-exercise-block {
+    margin-top: 14px;
+  }
+
+  .history-exercise-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--accent-light);
+    margin-bottom: 6px;
+  }
+
+  /* ===== PROGRESS ===== */
+  .progress-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .progress-controls label {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .progress-controls select {
+    width: auto;
+    min-width: 180px;
+  }
+
+  .chart-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+
+  .chart-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text);
+  }
+
+  canvas {
+    display: block;
+    width: 100% !important;
+    border-radius: var(--radius-sm);
+  }
+
+  .chart-empty {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  /* ===== TOAST ===== */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  .toast {
+    background: var(--bg-card2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 20px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--text);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    animation: toastIn 0.3s ease forwards;
+    white-space: nowrap;
+  }
+
+  .toast.success { border-color: var(--success); color: var(--success); }
+  .toast.danger { border-color: var(--danger); color: var(--danger); }
+  .toast.hide { animation: toastOut 0.3s ease forwards; }
+
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @keyframes toastOut {
+    to { opacity: 0; transform: translateY(12px) scale(0.95); }
+  }
+
+  /* ===== SECTION HEADERS ===== */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  /* ===== ADD EXERCISE FORM ===== */
+  .add-exercise-form {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    display: none;
+  }
+
+  .add-exercise-form.open { display: block; animation: fadeIn 0.25s ease; }
+
+  .form-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  .form-row > * { flex: 1; min-width: 140px; }
+
+  .form-row label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  /* ===== SCROLLBAR ===== */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent-dark); }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 600px) {
+    main { padding: 14px; }
+    .exercise-grid { grid-template-columns: 1fr 1fr; }
+    .modal { max-height: 95vh; }
+    .modal-header { padding: 18px 18px 0; }
+    .modal-body { padding: 16px 18px 18px; }
+    input[type="number"] { width: 70px; }
+    .set-input-row { gap: 6px; }
+  }
+
+  @media (max-width: 400px) {
+    .exercise-grid { grid-template-columns: 1fr; }
+    header h1 { font-size: 1.15rem; }
+  }
+
+  /* ===== STAT ROW ===== */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent-light);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>💪 ワークアウトトラッカー</h1>
+</header>
+
+<nav>
+  <button class="tab-btn active" data-tab="library">種目一覧</button>
+  <button class="tab-btn" data-tab="workout">ワークアウト</button>
+  <button class="tab-btn" data-tab="history">履歴</button>
+  <button class="tab-btn" data-tab="progress">進捗</button>
+</nav>
+
+<main>
+  <!-- ==================== LIBRARY TAB ==================== -->
+  <div id="tab-library" class="tab-content active">
+    <div class="section-header">
+      <span class="section-title">種目一覧</span>
+      <button class="btn btn-secondary btn-sm" id="toggle-add-form">＋ カスタム種目を追加</button>
+    </div>
+
+    <div class="add-exercise-form" id="add-exercise-form">
+      <div class="form-row">
+        <div>
+          <label>種目名</label>
+          <input type="text" id="custom-name" placeholder="例: ケーブルクロス" maxlength="40">
+        </div>
+        <div>
+          <label>カテゴリ</label>
+          <select id="custom-category">
+            <option value="胸">胸</option>
+            <option value="背中">背中</option>
+            <option value="肩">肩</option>
+            <option value="腕">腕</option>
+            <option value="脚">脚</option>
+            <option value="体幹">体幹</option>
+            <option value="カスタム">その他</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary btn-sm" id="save-custom-exercise">保存する</button>
+        <button class="btn btn-secondary btn-sm" id="cancel-add-form">キャンセル</button>
+      </div>
+    </div>
+
+    <div class="filter-bar" id="filter-bar">
+      <button class="filter-btn active" data-cat="全て">全て</button>
+      <button class="filter-btn" data-cat="胸">胸</button>
+      <button class="filter-btn" data-cat="背中">背中</button>
+      <button class="filter-btn" data-cat="肩">肩</button>
+      <button class="filter-btn" data-cat="腕">腕</button>
+      <button class="filter-btn" data-cat="脚">脚</button>
+      <button class="filter-btn" data-cat="体幹">体幹</button>
+    </div>
+
+    <div class="exercise-grid" id="exercise-grid"></div>
+  </div>
+
+  <!-- ==================== WORKOUT TAB ==================== -->
+  <div id="tab-workout" class="tab-content">
+    <div class="workout-header">
+      <span class="section-title">ワークアウト</span>
+      <div class="volume-display">総ボリューム: <span id="total-volume">0</span> kg</div>
+    </div>
+
+    <div id="workout-exercises"></div>
+
+    <div id="workout-complete-area" style="display:none; margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn btn-success" id="complete-workout-btn">✓ ワークアウト完了</button>
+      <button class="btn btn-danger btn-sm" id="clear-workout-btn">リセット</button>
+    </div>
+  </div>
+
+  <!-- ==================== HISTORY TAB ==================== -->
+  <div id="tab-history" class="tab-content">
+    <div class="section-header">
+      <span class="section-title">トレーニング履歴</span>
+      <div id="history-stats-summary" style="font-size:0.82rem; color:var(--text-muted);"></div>
+    </div>
+    <div id="history-list"></div>
+  </div>
+
+  <!-- ==================== PROGRESS TAB ==================== -->
+  <div id="tab-progress" class="tab-content">
+    <div class="section-header">
+      <span class="section-title">進捗チャート</span>
+    </div>
+
+    <div class="stat-grid" id="progress-stats"></div>
+
+    <div class="progress-controls">
+      <label>種目を選択:</label>
+      <select id="progress-exercise-select"></select>
+      <button class="btn btn-secondary btn-sm" id="refresh-progress-btn">更新</button>
+    </div>
+
+    <div class="chart-container">
+      <div class="chart-title" id="chart-title">最大重量の推移</div>
+      <div id="chart-area">
+        <div class="chart-empty">履歴データがありません。<br>ワークアウトを記録すると進捗が表示されます。</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ==================== EXERCISE DETAIL MODAL ==================== -->
+<div class="modal-overlay" id="exercise-modal-overlay">
+  <div class="modal" id="exercise-modal">
+    <div class="modal-header">
+      <div>
+        <div id="modal-category-badge"></div>
+        <h2 id="modal-title"></h2>
+      </div>
+      <button class="modal-close" id="modal-close-btn">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section" id="modal-desc-section">
+        <label>説明</label>
+        <p id="modal-description"></p>
+      </div>
+      <div class="modal-section" id="modal-muscles-section">
+        <label>ターゲット筋肉</label>
+        <div class="muscle-tags" id="modal-muscles"></div>
+      </div>
+      <div class="modal-section" id="modal-tips-section">
+        <label>ポイント</label>
+        <ul class="tips-list" id="modal-tips"></ul>
+      </div>
+      <div class="modal-section">
+        <label>動画</label>
+        <a id="modal-video-btn" class="video-btn" target="_blank" rel="noopener">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.45a8.23 8.23 0 004.87 1.59V6.59a4.85 4.85 0 01-1.1.1z"/>
+          </svg>
+          動画を見る（YouTube）
+        </a>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="modal-add-to-workout-btn">＋ ワークアウトに追加</button>
+        <button class="btn btn-secondary" id="modal-close-btn2">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TOAST CONTAINER ==================== -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// =====================================================================
+//  DATA
+// =====================================================================
+const PRESET_EXERCISES = [
+  {
+    id: 'e1', name: 'ベンチプレス', category: '胸',
+    description: '胸の代表的な種目。バーベルを使って大胸筋全体を鍛える複合種目です。',
+    muscles: ['大胸筋', '三角筋前部', '上腕三頭筋'],
+    tips: ['肩甲骨を寄せて肩を落とす', 'ブリッジ（アーチ）を作る', 'バーを胸の下部に付ける', '脚を床にしっかり固定する'],
+    isPreset: true
+  },
+  {
+    id: 'e2', name: 'インクラインベンチプレス', category: '胸',
+    description: '30〜45度の傾斜をつけたベンチで大胸筋上部を集中的に鍛える種目です。',
+    muscles: ['大胸筋上部', '三角筋前部', '上腕三頭筋'],
+    tips: ['インクライン角度は30〜45度が効果的', '肩甲骨を寄せたまま動作する', 'バーを上胸部付近に下ろす'],
+    isPreset: true
+  },
+  {
+    id: 'e3', name: 'ダンベルフライ', category: '胸',
+    description: 'ダンベルを使い胸を大きく開いてストレッチを最大化させる孤立種目です。',
+    muscles: ['大胸筋', '前鋸筋', '三角筋前部'],
+    tips: ['肘を軽く曲げた状態を維持する', '胸の伸びを意識してゆっくり下ろす', '上げる際は胸を絞るようにする'],
+    isPreset: true
+  },
+  {
+    id: 'e4', name: 'プッシュアップ', category: '胸',
+    description: '自重で行う基本的な胸のトレーニング。場所を選ばず行える種目です。',
+    muscles: ['大胸筋', '三角筋前部', '上腕三頭筋'],
+    tips: ['体を一直線に保つ', '胸が地面に近づくまで下げる', '手幅は肩幅より少し広め'],
+    isPreset: true
+  },
+  {
+    id: 'e5', name: 'デッドリフト', category: '背中',
+    description: '全身の筋肉を使う最強の複合種目。背中、臀部、脚を同時に鍛えられます。',
+    muscles: ['脊柱起立筋', '大臀筋', 'ハムストリング', '広背筋', '僧帽筋'],
+    tips: ['背中を丸めない（ニュートラルスパイン）', 'バーをすねに沿って引き上げる', '膝と股関節を同時に伸ばす', '肩甲骨を引いて胸を張る'],
+    isPreset: true
+  },
+  {
+    id: 'e6', name: '懸垂（チンニング）', category: '背中',
+    description: '上半身の引く動作の基本種目。広背筋を中心に上半身の引く筋肉を鍛えます。',
+    muscles: ['広背筋', '大円筋', '上腕二頭筋', '菱形筋'],
+    tips: ['肩甲骨を下げてから引き始める', '胸をバーに近づけるイメージ', '下ろす際もコントロールを維持'],
+    isPreset: true
+  },
+  {
+    id: 'e7', name: 'ラットプルダウン', category: '背中',
+    description: 'ケーブルマシンで広背筋を鍛える種目。懸垂が難しい方にも最適です。',
+    muscles: ['広背筋', '大円筋', '上腕二頭筋', '菱形筋'],
+    tips: ['少し後ろに傾いて引く', '肘を脇腹に引き寄せるイメージ', '背中の収縮を感じながらゆっくり戻す'],
+    isPreset: true
+  },
+  {
+    id: 'e8', name: 'ベントオーバーロウ', category: '背中',
+    description: 'バーベルを引く動作で背中の厚みを作る複合種目です。',
+    muscles: ['広背筋', '僧帽筋中部・下部', '菱形筋', '脊柱起立筋'],
+    tips: ['上体を45〜60度前傾させる', '背中を平らに保つ', 'バーをへそに向かって引く'],
+    isPreset: true
+  },
+  {
+    id: 'e9', name: 'ショルダープレス', category: '肩',
+    description: '肩の基本プレス種目。三角筋前部・中部を中心に鍛えます。',
+    muscles: ['三角筋前部', '三角筋中部', '上腕三頭筋', '僧帽筋'],
+    tips: ['体を反らせすぎない', 'バーは頭の前で押し上げる', '肘が前に出るよう意識する'],
+    isPreset: true
+  },
+  {
+    id: 'e10', name: 'サイドレイズ', category: '肩',
+    description: '肩幅を広げる孤立種目。三角筋中部をピンポイントで鍛えます。',
+    muscles: ['三角筋中部'],
+    tips: ['肘を少し曲げて行う', '肩のラインまで上げる（それ以上はNG）', 'ゆっくりと下ろす'],
+    isPreset: true
+  },
+  {
+    id: 'e11', name: 'フロントレイズ', category: '肩',
+    description: '肩前部（三角筋前部）を集中的に鍛える孤立種目です。',
+    muscles: ['三角筋前部'],
+    tips: ['体を反らさない', '肩の高さまで上げる', '反動を使わない'],
+    isPreset: true
+  },
+  {
+    id: 'e12', name: 'バーベルカール', category: '腕',
+    description: '上腕二頭筋の基本種目。バーベルを使うことで高重量が扱えます。',
+    muscles: ['上腕二頭筋', '上腕筋', '腕橈骨筋'],
+    tips: ['肘を固定して動かす', '完全に伸ばしてから引く', '反動を使わない'],
+    isPreset: true
+  },
+  {
+    id: 'e13', name: 'ハンマーカール', category: '腕',
+    description: '腕全体の厚みを作るカール種目。ニュートラルグリップで行います。',
+    muscles: ['上腕筋', '腕橈骨筋', '上腕二頭筋'],
+    tips: ['親指を上にしてカールする', '肘を固定する', '上腕筋の収縮を感じながら'],
+    isPreset: true
+  },
+  {
+    id: 'e14', name: 'トライセプスプレスダウン', category: '腕',
+    description: 'ケーブルマシンで上腕三頭筋を孤立させる種目です。',
+    muscles: ['上腕三頭筋'],
+    tips: ['肘を固定して動かす', '完全に伸ばしきる', '上体を前傾させすぎない'],
+    isPreset: true
+  },
+  {
+    id: 'e15', name: 'スカルクラッシャー', category: '腕',
+    description: '上腕三頭筋の長頭を重点的に鍛えるエクササイズです。',
+    muscles: ['上腕三頭筋'],
+    tips: ['肘を肩幅に保つ', 'バーを頭上に下ろしすぎない', '肘が外に開かないよう注意'],
+    isPreset: true
+  },
+  {
+    id: 'e16', name: 'スクワット', category: '脚',
+    description: '下半身の王様種目。大腿四頭筋・大臀筋・ハムストリングを総合的に鍛えます。',
+    muscles: ['大腿四頭筋', '大臀筋', 'ハムストリング', '体幹'],
+    tips: ['膝をつま先方向に向ける', '背中を真っすぐに保つ', '太ももが床と平行になるまで下げる'],
+    isPreset: true
+  },
+  {
+    id: 'e17', name: 'レッグプレス', category: '脚',
+    description: 'マシンで下半身を安全に追い込める種目。膝への負担が少ないです。',
+    muscles: ['大腿四頭筋', '大臀筋', 'ハムストリング'],
+    tips: ['膝を完全に伸ばし切らない', '腰を丸めない', '足の位置で効く場所が変わる'],
+    isPreset: true
+  },
+  {
+    id: 'e18', name: 'ランジ', category: '脚',
+    description: '片脚ずつ鍛えるバランス重視の種目。左右差の修正にも効果的です。',
+    muscles: ['大腿四頭筋', '大臀筋', 'ハムストリング'],
+    tips: ['踏み出した足の膝が前に出すぎないよう', '上体を垂直に保つ', '後ろ足の膝を床に近づける'],
+    isPreset: true
+  },
+  {
+    id: 'e19', name: 'レッグカール', category: '脚',
+    description: 'ハムストリングを孤立させるマシン種目です。',
+    muscles: ['ハムストリング', '腓腹筋'],
+    tips: ['完全に収縮させる', 'ゆっくりと伸ばす', '腰が浮かないよう注意'],
+    isPreset: true
+  },
+  {
+    id: 'e20', name: 'カーフレイズ', category: '脚',
+    description: 'ふくらはぎ（腓腹筋・ヒラメ筋）を鍛える種目です。',
+    muscles: ['腓腹筋', 'ヒラメ筋'],
+    tips: ['かかとを限界まで上げる', '一番上で1秒止める', '可動域を最大限に使う'],
+    isPreset: true
+  },
+  {
+    id: 'e21', name: 'プランク', category: '体幹',
+    description: '体幹を安定させる基本種目。静的な収縮で体幹深部を鍛えます。',
+    muscles: ['腹横筋', '多裂筋', '腹直筋', '横隔膜'],
+    tips: ['体を一直線に保つ', '腰が下がらないよう注意', '呼吸を止めない', '視線は床のやや前方'],
+    isPreset: true,
+    isTime: true
+  },
+  {
+    id: 'e22', name: 'クランチ', category: '体幹',
+    description: '腹直筋を集中的に鍛える基本的な体幹種目です。',
+    muscles: ['腹直筋'],
+    tips: ['腰を床から離さない', '首を引っ張らない', '腹筋の収縮を意識する', '息を吐きながら上げる'],
+    isPreset: true
+  },
+  {
+    id: 'e23', name: 'レッグレイズ', category: '体幹',
+    description: '腹直筋下部とお腹周りを鍛える種目です。',
+    muscles: ['腹直筋下部', '腸腰筋'],
+    tips: ['腰が反らないよう腹圧をかける', '足を完全に下ろしきらない', 'ゆっくりと下ろすことで効果アップ'],
+    isPreset: true
+  }
+];
+
+// =====================================================================
+//  STATE
+// =====================================================================
+let currentFilter = '全て';
+let selectedExerciseId = null; // for modal
+let customExercises = JSON.parse(localStorage.getItem('customExercises') || '[]');
+let currentWorkout = JSON.parse(localStorage.getItem('currentWorkout') || '[]');
+// currentWorkout = [{ exerciseId, sets: [{weight, reps}] }]
+let workoutHistory = JSON.parse(localStorage.getItem('workoutHistory') || '[]');
+// workoutHistory = [{ id, date, exercises: [...], totalVolume }]
+
+function getAllExercises() {
+  return [...PRESET_EXERCISES, ...customExercises];
+}
+
+function getExerciseById(id) {
+  return getAllExercises().find(e => e.id === id);
+}
+
+function saveCurrentWorkout() {
+  localStorage.setItem('currentWorkout', JSON.stringify(currentWorkout));
+}
+
+function saveHistory() {
+  localStorage.setItem('workoutHistory', JSON.stringify(workoutHistory));
+}
+
+function saveCustomExercises() {
+  localStorage.setItem('customExercises', JSON.stringify(customExercises));
+}
+
+// =====================================================================
+//  TOAST
+// =====================================================================
+function showToast(message, type = 'success', duration = 2800) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add('hide');
+    setTimeout(() => toast.remove(), 350);
+  }, duration);
+}
+
+// =====================================================================
+//  TAB NAVIGATION
+// =====================================================================
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    document.getElementById(`tab-${tab}`).classList.add('active');
+    if (tab === 'history') renderHistory();
+    if (tab === 'progress') renderProgress();
+    if (tab === 'workout') renderWorkoutTab();
+  });
+});
+
+// =====================================================================
+//  EXERCISE LIBRARY
+// =====================================================================
+function renderLibrary() {
+  const grid = document.getElementById('exercise-grid');
+  const all = getAllExercises();
+  const filtered = currentFilter === '全て' ? all : all.filter(e => e.category === currentFilter);
+  grid.innerHTML = '';
+  if (filtered.length === 0) {
+    grid.innerHTML = '<div style="color:var(--text-muted);font-size:0.9rem;grid-column:1/-1;">該当する種目がありません。</div>';
+    return;
+  }
+  filtered.forEach(ex => {
+    const card = document.createElement('div');
+    card.className = 'exercise-card';
+    const muscleTags = (ex.muscles || []).map(m => `<span class="muscle-tag">${m}</span>`).join('');
+    card.innerHTML = `
+      <span class="category-badge cat-${ex.category}">${ex.category}</span>
+      <h3>${ex.name}</h3>
+      <div class="muscle-tags">${muscleTags}</div>
+    `;
+    card.addEventListener('click', () => openExerciseModal(ex.id));
+    grid.appendChild(card);
+  });
+}
+
+// Filter buttons
+document.getElementById('filter-bar').addEventListener('click', e => {
+  if (!e.target.matches('.filter-btn')) return;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  currentFilter = e.target.dataset.cat;
+  renderLibrary();
+});
+
+// Add custom exercise
+document.getElementById('toggle-add-form').addEventListener('click', () => {
+  const form = document.getElementById('add-exercise-form');
+  form.classList.toggle('open');
+  document.getElementById('toggle-add-form').textContent = form.classList.contains('open') ? '✕ 閉じる' : '＋ カスタム種目を追加';
+});
+
+document.getElementById('cancel-add-form').addEventListener('click', () => {
+  document.getElementById('add-exercise-form').classList.remove('open');
+  document.getElementById('toggle-add-form').textContent = '＋ カスタム種目を追加';
+  document.getElementById('custom-name').value = '';
+});
+
+document.getElementById('save-custom-exercise').addEventListener('click', () => {
+  const name = document.getElementById('custom-name').value.trim();
+  const category = document.getElementById('custom-category').value;
+  if (!name) { showToast('種目名を入力してください', 'danger'); return; }
+  if (getAllExercises().find(e => e.name === name)) {
+    showToast('同名の種目がすでに存在します', 'danger'); return;
+  }
+  const newEx = {
+    id: 'c' + Date.now(),
+    name, category,
+    description: 'カスタム種目です。',
+    muscles: [],
+    tips: [],
+    isPreset: false
+  };
+  customExercises.push(newEx);
+  saveCustomExercises();
+  document.getElementById('custom-name').value = '';
+  document.getElementById('add-exercise-form').classList.remove('open');
+  document.getElementById('toggle-add-form').textContent = '＋ カスタム種目を追加';
+  renderLibrary();
+  showToast(`「${name}」を追加しました`);
+});
+
+// =====================================================================
+//  EXERCISE MODAL
+// =====================================================================
+function openExerciseModal(id) {
+  selectedExerciseId = id;
+  const ex = getExerciseById(id);
+  if (!ex) return;
+
+  document.getElementById('modal-title').textContent = ex.name;
+  const badge = document.getElementById('modal-category-badge');
+  badge.className = `category-badge cat-${ex.category}`;
+  badge.textContent = ex.category;
+
+  const descSection = document.getElementById('modal-desc-section');
+  if (ex.description) {
+    document.getElementById('modal-description').textContent = ex.description;
+    descSection.style.display = '';
+  } else {
+    descSection.style.display = 'none';
+  }
+
+  const musclesSection = document.getElementById('modal-muscles-section');
+  if (ex.muscles && ex.muscles.length > 0) {
+    document.getElementById('modal-muscles').innerHTML = ex.muscles.map(m => `<span class="muscle-tag">${m}</span>`).join('');
+    musclesSection.style.display = '';
+  } else {
+    musclesSection.style.display = 'none';
+  }
+
+  const tipsSection = document.getElementById('modal-tips-section');
+  if (ex.tips && ex.tips.length > 0) {
+    document.getElementById('modal-tips').innerHTML = ex.tips.map(t => `<li>${t}</li>`).join('');
+    tipsSection.style.display = '';
+  } else {
+    tipsSection.style.display = 'none';
+  }
+
+  const videoBtn = document.getElementById('modal-video-btn');
+  videoBtn.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' フォーム 解説')}`;
+
+  document.getElementById('exercise-modal-overlay').classList.add('open');
+}
+
+function closeExerciseModal() {
+  document.getElementById('exercise-modal-overlay').classList.remove('open');
+  selectedExerciseId = null;
+}
+
+document.getElementById('modal-close-btn').addEventListener('click', closeExerciseModal);
+document.getElementById('modal-close-btn2').addEventListener('click', closeExerciseModal);
+document.getElementById('exercise-modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('exercise-modal-overlay')) closeExerciseModal();
+});
+
+document.getElementById('modal-add-to-workout-btn').addEventListener('click', () => {
+  if (!selectedExerciseId) return;
+  const ex = getExerciseById(selectedExerciseId);
+  if (!ex) return;
+
+  const alreadyIn = currentWorkout.find(w => w.exerciseId === selectedExerciseId);
+  if (alreadyIn) {
+    showToast(`「${ex.name}」はすでに追加されています`, 'danger');
+    closeExerciseModal();
+    return;
+  }
+
+  currentWorkout.push({ exerciseId: selectedExerciseId, sets: [] });
+  saveCurrentWorkout();
+  closeExerciseModal();
+  showToast(`「${ex.name}」をワークアウトに追加しました`);
+
+  // Switch to workout tab
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector('[data-tab="workout"]').classList.add('active');
+  document.getElementById('tab-workout').classList.add('active');
+  renderWorkoutTab();
+});
+
+// =====================================================================
+//  ACTIVE WORKOUT
+// =====================================================================
+function calcTotalVolume() {
+  let total = 0;
+  currentWorkout.forEach(item => {
+    const ex = getExerciseById(item.exerciseId);
+    if (ex && ex.isTime) return; // プランク excluded from volume
+    item.sets.forEach(s => {
+      total += (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0);
+    });
+  });
+  return total;
+}
+
+function renderWorkoutTab() {
+  const container = document.getElementById('workout-exercises');
+  const completeArea = document.getElementById('workout-complete-area');
+
+  document.getElementById('total-volume').textContent = calcTotalVolume().toLocaleString();
+
+  if (currentWorkout.length === 0) {
+    container.innerHTML = `
+      <div class="workout-empty">
+        <div class="icon">🏋️</div>
+        <p>種目一覧から種目を追加してください</p>
+        <button class="btn btn-secondary" onclick="
+          document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+          document.querySelector('[data-tab=library]').classList.add('active');
+          document.getElementById('tab-library').classList.add('active');
+        ">種目一覧へ</button>
+      </div>`;
+    completeArea.style.display = 'none';
+    return;
+  }
+
+  completeArea.style.display = 'flex';
+  container.innerHTML = '';
+
+  currentWorkout.forEach((item, itemIdx) => {
+    const ex = getExerciseById(item.exerciseId);
+    if (!ex) return;
+
+    const card = document.createElement('div');
+    card.className = 'workout-exercise-card';
+
+    const isTime = !!ex.isTime;
+
+    let setsHTML = '';
+    if (item.sets.length > 0) {
+      const rows = item.sets.map((s, si) => {
+        const valDisplay = isTime
+          ? `<td>${s.reps}秒</td><td>—</td>`
+          : `<td>${s.weight}kg</td><td>${s.reps}回</td>`;
+        return `<tr>
+          <td class="set-num">Set ${si + 1}</td>
+          ${valDisplay}
+          <td><button class="set-delete" data-item="${itemIdx}" data-set="${si}">✕</button></td>
+        </tr>`;
+      }).join('');
+      setsHTML = `
+        <table class="sets-table">
+          <thead><tr>
+            <th>セット</th>
+            ${isTime ? '<th>時間</th>' : '<th>重量</th>'}
+            ${isTime ? '<th>-</th>' : '<th>回数</th>'}
+            <th></th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    const weightInput = isTime
+      ? ''
+      : `<div class="input-group">
+          <label>重量</label>
+          <input type="number" class="set-weight" min="0" step="0.5" value="20" placeholder="kg">
+          <span style="font-size:0.8rem;color:var(--text-muted)">kg</span>
+        </div>`;
+
+    const repsLabel = isTime ? '秒数' : '回数';
+    const repsPlaceholder = isTime ? '秒' : '回';
+    const repsDefault = isTime ? '30' : '10';
+
+    card.innerHTML = `
+      <div class="workout-exercise-header">
+        <div>
+          <span class="category-badge cat-${ex.category}" style="margin-bottom:4px;">${ex.category}</span>
+          <h3>${ex.name}</h3>
+        </div>
+        <button class="btn btn-danger btn-sm remove-exercise-btn" data-idx="${itemIdx}">削除</button>
+      </div>
+      <div class="workout-exercise-body">
+        <div class="set-input-row">
+          ${weightInput}
+          <div class="input-group">
+            <label>${repsLabel}</label>
+            <input type="number" class="set-reps" min="0" value="${repsDefault}" placeholder="${repsPlaceholder}">
+            <span style="font-size:0.8rem;color:var(--text-muted)">${repsPlaceholder}</span>
+          </div>
+          <button class="btn btn-secondary btn-sm add-set-btn" data-idx="${itemIdx}">＋ セット追加</button>
+        </div>
+        ${setsHTML}
+      </div>`;
+
+    container.appendChild(card);
+  });
+
+  // Event listeners
+  container.querySelectorAll('.add-set-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      const card = btn.closest('.workout-exercise-card');
+      const weightEl = card.querySelector('.set-weight');
+      const repsEl = card.querySelector('.set-reps');
+      const weight = weightEl ? parseFloat(weightEl.value) || 0 : 0;
+      const reps = parseInt(repsEl.value) || 0;
+      if (reps <= 0) { showToast('回数（または秒数）を入力してください', 'danger'); return; }
+      currentWorkout[idx].sets.push({ weight, reps });
+      saveCurrentWorkout();
+      renderWorkoutTab();
+    });
+  });
+
+  container.querySelectorAll('.set-delete').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const itemIdx = parseInt(btn.dataset.item);
+      const setIdx = parseInt(btn.dataset.set);
+      currentWorkout[itemIdx].sets.splice(setIdx, 1);
+      saveCurrentWorkout();
+      renderWorkoutTab();
+    });
+  });
+
+  container.querySelectorAll('.remove-exercise-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      const ex = getExerciseById(currentWorkout[idx].exerciseId);
+      currentWorkout.splice(idx, 1);
+      saveCurrentWorkout();
+      renderWorkoutTab();
+      if (ex) showToast(`「${ex.name}」を削除しました`);
+    });
+  });
+}
+
+document.getElementById('complete-workout-btn').addEventListener('click', () => {
+  if (currentWorkout.length === 0) { showToast('種目が追加されていません', 'danger'); return; }
+  const hasAnySets = currentWorkout.some(item => item.sets.length > 0);
+  if (!hasAnySets) { showToast('少なくとも1セット記録してください', 'danger'); return; }
+
+  const session = {
+    id: Date.now().toString(),
+    date: new Date().toLocaleString('ja-JP', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }),
+    exercises: currentWorkout.map(item => {
+      const ex = getExerciseById(item.exerciseId);
+      return {
+        exerciseId: item.exerciseId,
+        name: ex ? ex.name : '不明',
+        category: ex ? ex.category : '',
+        isTime: ex ? !!ex.isTime : false,
+        sets: [...item.sets]
+      };
+    }).filter(e => e.sets.length > 0),
+    totalVolume: calcTotalVolume()
+  };
+
+  workoutHistory.unshift(session);
+  saveHistory();
+
+  currentWorkout = [];
+  saveCurrentWorkout();
+
+  renderWorkoutTab();
+  showToast('ワークアウトを保存しました！🎉', 'success');
+});
+
+document.getElementById('clear-workout-btn').addEventListener('click', () => {
+  if (!confirm('ワークアウトをリセットしますか？')) return;
+  currentWorkout = [];
+  saveCurrentWorkout();
+  renderWorkoutTab();
+  showToast('ワークアウトをリセットしました');
+});
+
+// =====================================================================
+//  HISTORY
+// =====================================================================
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  const summaryEl = document.getElementById('history-stats-summary');
+
+  if (workoutHistory.length === 0) {
+    list.innerHTML = '<div class="history-empty" style="text-align:center;padding:60px 20px;color:var(--text-muted);">まだ記録がありません。<br>ワークアウトを完了すると履歴が表示されます。</div>';
+    summaryEl.textContent = '';
+    return;
+  }
+
+  summaryEl.textContent = `全${workoutHistory.length}回`;
+  list.innerHTML = '';
+
+  workoutHistory.forEach((session, idx) => {
+    const card = document.createElement('div');
+    card.className = 'history-card';
+
+    const exerciseNames = session.exercises.map(e => e.name).join('、');
+    const preview = exerciseNames.length > 40 ? exerciseNames.slice(0, 40) + '…' : exerciseNames;
+
+    let detailsHTML = '';
+    session.exercises.forEach(ex => {
+      const setsRows = ex.sets.map((s, si) => {
+        const val = ex.isTime ? `${s.reps}秒` : `${s.weight}kg × ${s.reps}回`;
+        return `<tr><td class="set-num">Set ${si+1}</td><td>${val}</td></tr>`;
+      }).join('');
+      detailsHTML += `
+        <div class="history-exercise-block">
+          <div class="history-exercise-name"><span class="category-badge cat-${ex.category}" style="margin-right:6px;font-size:0.7rem;">${ex.category}</span>${ex.name}</div>
+          <table class="sets-table">
+            <thead><tr><th>セット</th><th>${ex.isTime ? '時間' : '内容'}</th></tr></thead>
+            <tbody>${setsRows}</tbody>
+          </table>
+        </div>`;
+    });
+
+    card.innerHTML = `
+      <div class="history-card-header">
+        <div>
+          <div class="history-date">${session.date}</div>
+          <div class="history-summary">${preview}</div>
+        </div>
+        <div class="history-meta">
+          ${session.totalVolume > 0 ? `<span class="history-volume">${session.totalVolume.toLocaleString()} kg</span>` : ''}
+          <button class="btn btn-danger btn-sm delete-session-btn" data-idx="${idx}" style="white-space:nowrap;">削除</button>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="history-details">${detailsHTML}</div>`;
+
+    card.querySelector('.history-card-header').addEventListener('click', e => {
+      if (e.target.closest('.delete-session-btn')) return;
+      card.classList.toggle('expanded');
+    });
+
+    card.querySelector('.delete-session-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      if (!confirm('この記録を削除しますか？')) return;
+      workoutHistory.splice(idx, 1);
+      saveHistory();
+      renderHistory();
+      renderProgress();
+      showToast('履歴を削除しました', 'danger');
+    });
+
+    list.appendChild(card);
+  });
+}
+
+// =====================================================================
+//  PROGRESS
+// =====================================================================
+function renderProgress() {
+  const select = document.getElementById('progress-exercise-select');
+  const chartArea = document.getElementById('chart-area');
+  const statsEl = document.getElementById('progress-stats');
+
+  // Build stats
+  const totalSessions = workoutHistory.length;
+  const totalVolume = workoutHistory.reduce((a, s) => a + (s.totalVolume || 0), 0);
+  const allExNames = new Set();
+  workoutHistory.forEach(s => s.exercises.forEach(e => allExNames.add(e.name)));
+
+  statsEl.innerHTML = `
+    <div class="stat-card"><div class="stat-value">${totalSessions}</div><div class="stat-label">総セッション数</div></div>
+    <div class="stat-card"><div class="stat-value">${totalVolume.toLocaleString()}</div><div class="stat-label">総ボリューム (kg)</div></div>
+    <div class="stat-card"><div class="stat-value">${allExNames.size}</div><div class="stat-label">記録済み種目数</div></div>
+  `;
+
+  // Exercise selector
+  const allLoggedExercises = [];
+  const seen = new Set();
+  workoutHistory.forEach(s => {
+    s.exercises.forEach(e => {
+      if (!seen.has(e.exerciseId || e.name)) {
+        seen.add(e.exerciseId || e.name);
+        allLoggedExercises.push({ id: e.exerciseId || e.name, name: e.name, isTime: e.isTime });
+      }
+    });
+  });
+
+  const prevSelected = select.value;
+  select.innerHTML = '';
+  if (allLoggedExercises.length === 0) {
+    select.innerHTML = '<option value="">— データなし —</option>';
+  } else {
+    allLoggedExercises.forEach(ex => {
+      const opt = document.createElement('option');
+      opt.value = ex.id;
+      opt.textContent = ex.name;
+      select.appendChild(opt);
+    });
+    if (prevSelected && allLoggedExercises.find(e => e.id === prevSelected)) {
+      select.value = prevSelected;
+    }
+  }
+
+  drawProgressChart();
+}
+
+function drawProgressChart() {
+  const select = document.getElementById('progress-exercise-select');
+  const chartArea = document.getElementById('chart-area');
+  const chartTitle = document.getElementById('chart-title');
+  const selectedId = select.value;
+
+  if (!selectedId) {
+    chartArea.innerHTML = '<div class="chart-empty">履歴データがありません。<br>ワークアウトを記録すると進捗が表示されます。</div>';
+    return;
+  }
+
+  // Gather data points
+  const dataPoints = [];
+  const reversedHistory = [...workoutHistory].reverse();
+  reversedHistory.forEach(session => {
+    session.exercises.forEach(ex => {
+      const exId = ex.exerciseId || ex.name;
+      if (exId === selectedId) {
+        const maxWeight = ex.isTime
+          ? Math.max(...ex.sets.map(s => s.reps || 0))
+          : Math.max(...ex.sets.map(s => (parseFloat(s.weight) || 0)));
+        const dateStr = session.date.split(' ')[0] || session.date;
+        dataPoints.push({ date: dateStr, value: maxWeight });
+      }
+    });
+  });
+
+  if (dataPoints.length === 0) {
+    chartArea.innerHTML = '<div class="chart-empty">このデータがありません。</div>';
+    return;
+  }
+
+  const exInfo = workoutHistory.flatMap(s => s.exercises).find(e => (e.exerciseId || e.name) === selectedId);
+  const isTime = exInfo ? exInfo.isTime : false;
+  const exName = exInfo ? exInfo.name : selectedId;
+  chartTitle.textContent = `${exName} — ${isTime ? '最長時間の推移' : '最大重量の推移'}`;
+
+  chartArea.innerHTML = '<canvas id="progress-canvas"></canvas>';
+  const canvas = document.getElementById('progress-canvas');
+
+  const dpr = window.devicePixelRatio || 1;
+  const cssWidth = canvas.parentElement.clientWidth - 40;
+  const cssHeight = Math.max(220, Math.min(320, window.innerHeight * 0.32));
+  canvas.style.width = cssWidth + 'px';
+  canvas.style.height = cssHeight + 'px';
+  canvas.width = cssWidth * dpr;
+  canvas.height = cssHeight * dpr;
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = cssWidth;
+  const H = cssHeight;
+
+  const PAD = { top: 20, right: 20, bottom: 50, left: 50 };
+  const chartW = W - PAD.left - PAD.right;
+  const chartH = H - PAD.top - PAD.bottom;
+
+  const values = dataPoints.map(d => d.value);
+  const minVal = Math.max(0, Math.min(...values) * 0.85);
+  const maxVal = Math.max(...values) * 1.15;
+  const valRange = maxVal - minVal || 1;
+
+  // Background
+  ctx.fillStyle = '#1A1A2E';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  const gridLines = 5;
+  for (let i = 0; i <= gridLines; i++) {
+    const y = PAD.top + (chartH / gridLines) * i;
+    ctx.beginPath();
+    ctx.moveTo(PAD.left, y);
+    ctx.lineTo(PAD.left + chartW, y);
+    ctx.stroke();
+
+    // Y-axis labels
+    const val = maxVal - (valRange / gridLines) * i;
+    ctx.fillStyle = 'rgba(136,136,170,0.9)';
+    ctx.font = `${11 * dpr / dpr}px -apple-system, sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.fillText(isTime ? val.toFixed(0) + 's' : val.toFixed(1) + 'kg', PAD.left - 6, y + 4);
+  }
+
+  if (dataPoints.length === 1) {
+    // Single point
+    const x = PAD.left + chartW / 2;
+    const y = PAD.top + chartH / 2;
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#6C63FF';
+    ctx.fill();
+
+    ctx.fillStyle = '#E8E8F0';
+    ctx.font = `bold 13px -apple-system, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(isTime ? dataPoints[0].value + '秒' : dataPoints[0].value + 'kg', x, y - 14);
+
+    ctx.fillStyle = 'rgba(136,136,170,0.8)';
+    ctx.font = `11px -apple-system, sans-serif`;
+    ctx.fillText(dataPoints[0].date, x, H - PAD.bottom + 18);
+    return;
+  }
+
+  // Compute point positions
+  const points = dataPoints.map((d, i) => ({
+    x: PAD.left + (i / (dataPoints.length - 1)) * chartW,
+    y: PAD.top + chartH - ((d.value - minVal) / valRange) * chartH,
+    ...d
+  }));
+
+  // Gradient area fill
+  const gradient = ctx.createLinearGradient(0, PAD.top, 0, PAD.top + chartH);
+  gradient.addColorStop(0, 'rgba(108,99,255,0.35)');
+  gradient.addColorStop(1, 'rgba(108,99,255,0.02)');
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    const cp1x = (points[i-1].x + points[i].x) / 2;
+    const cp1y = points[i-1].y;
+    const cp2x = (points[i-1].x + points[i].x) / 2;
+    const cp2y = points[i].y;
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, points[i].x, points[i].y);
+  }
+  ctx.lineTo(points[points.length - 1].x, PAD.top + chartH);
+  ctx.lineTo(points[0].x, PAD.top + chartH);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    const cp1x = (points[i-1].x + points[i].x) / 2;
+    const cp1y = points[i-1].y;
+    const cp2x = (points[i-1].x + points[i].x) / 2;
+    const cp2y = points[i].y;
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, points[i].x, points[i].y);
+  }
+  ctx.strokeStyle = '#6C63FF';
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Data points & labels
+  points.forEach((p, i) => {
+    // Outer glow
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(108,99,255,0.25)';
+    ctx.fill();
+
+    // Inner dot
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#8B85FF';
+    ctx.fill();
+    ctx.strokeStyle = '#1A1A2E';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Value label
+    ctx.fillStyle = '#E8E8F0';
+    ctx.font = `bold 11px -apple-system, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(isTime ? p.value + 's' : p.value + 'kg', p.x, p.y - 12);
+
+    // X-axis date label (show subset if too many)
+    const showLabel = dataPoints.length <= 8 || i % Math.ceil(dataPoints.length / 6) === 0 || i === dataPoints.length - 1;
+    if (showLabel) {
+      ctx.fillStyle = 'rgba(136,136,170,0.85)';
+      ctx.font = `10px -apple-system, sans-serif`;
+      ctx.textAlign = 'center';
+      const shortDate = p.date.replace(/\d{4}\//, '').replace(/\//g, '/');
+      ctx.fillText(shortDate, p.x, H - PAD.bottom + 16);
+    }
+  });
+}
+
+document.getElementById('progress-exercise-select').addEventListener('change', drawProgressChart);
+document.getElementById('refresh-progress-btn').addEventListener('click', renderProgress);
+
+// =====================================================================
+//  INIT
+// =====================================================================
+renderLibrary();
+renderWorkoutTab();
+</script>
+</body>
+</html>
