@@ -1374,12 +1374,9 @@ function renderHome() {
     </div>`;
 
   el.innerHTML = `
-    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
-      <div>
-        <div class="greeting">${getGreeting()}</div>
-        <div class="date-str">${formatDateJP(today)}</div>
-      </div>
-      <button class="btn-icon btn" onclick="openSettingsModal()" title="設定" style="margin-bottom:4px;">⚙️</button>
+    <div class="page-header">
+      <div class="greeting">${getGreeting()}</div>
+      <div class="date-str">${formatDateJP(today)}</div>
     </div>
     ${activeWarnHTML}
     ${focusHTML}
@@ -1399,7 +1396,10 @@ function renderHome() {
     <div class="card">
       <div class="card-title">最近のワークアウト</div>
       ${recentHTML}
-    </div>`;
+    </div>
+    <button class="btn btn-outline" style="width:100%;color:#666;border-color:#2a2a2a;margin-bottom:8px;" onclick="openSettingsModal()">
+      ⚙️ 設定 / データのバックアップ
+    </button>`;
 }
 
 function resumeSession() {
