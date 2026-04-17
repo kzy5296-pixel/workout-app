@@ -853,6 +853,38 @@
   </div>
 </div>
 
+<!-- ====== SETTINGS MODAL ====== -->
+<div class="modal-overlay" id="settingsModal" onclick="closeSettingsModal(event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">⚙️ 設定</div>
+    <div style="margin-bottom:8px;font-size:13px;color:#888;">データのバックアップ・復元ができます</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
+      <button class="btn btn-primary" onclick="exportData()">📥 データをエクスポート</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">📤 データをインポート</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
+      <div class="divider"></div>
+      <button class="btn btn-outline" style="color:#ff4444;border-color:#ff444455;" onclick="clearAllData()">⚠️ すべてのデータを削除</button>
+      <button class="btn btn-outline" onclick="closeSettingsModal()">閉じる</button>
+    </div>
+    <div style="margin-top:20px;font-size:12px;color:#555;text-align:center;">
+      エクスポートしたJSONは大切に保管してください。<br>
+      機種変更時はこのファイルで復元できます。
+    </div>
+  </div>
+</div>
+
+<!-- ====== CONFIRM MODAL ====== -->
+<div class="modal-overlay" id="confirmModal" style="z-index:2500;align-items:center;">
+  <div class="modal-sheet" style="border-radius:16px;max-width:360px;margin:0 16px;padding:24px 20px;" onclick="event.stopPropagation()">
+    <div id="confirmMessage" style="font-size:16px;line-height:1.6;margin-bottom:20px;text-align:center;"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-outline" style="flex:1;" onclick="_resolveConfirm(false)">キャンセル</button>
+      <button class="btn btn-primary" id="confirmOkBtn" style="flex:1;" onclick="_resolveConfirm(true)">OK</button>
+    </div>
+  </div>
+</div>
+
 <!-- ====== TOAST ====== -->
 <div class="toast" id="toast"></div>
 
@@ -1342,9 +1374,12 @@ function renderHome() {
     </div>`;
 
   el.innerHTML = `
-    <div class="page-header">
-      <div class="greeting">${getGreeting()}</div>
-      <div class="date-str">${formatDateJP(today)}</div>
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
+      <div>
+        <div class="greeting">${getGreeting()}</div>
+        <div class="date-str">${formatDateJP(today)}</div>
+      </div>
+      <button class="btn-icon btn" onclick="openSettingsModal()" title="設定" style="margin-bottom:4px;">⚙️</button>
     </div>
     ${activeWarnHTML}
     ${focusHTML}
@@ -1810,20 +1845,21 @@ function completeWorkout() {
 
   // update PRs
   const prs = getPRs();
+  const tryPR = (name, weight, reps) => {
+    if (!weight || !reps) return;
+    const w = parseFloat(weight), r = parseInt(reps);
+    const vol = w * r;
+    if (!prs[name] || vol > prs[name].volume) {
+      prs[name] = { weight: w, reps: r, volume: vol, date: activeSession.date };
+    }
+  };
   activeSession.exercises.forEach(ex => {
     ex.sets.filter(s => s.done).forEach(s => {
       if (ex.bilateral) {
-        if (s.weightL && s.repsL) {
-          const vol = parseFloat(s.weightL) * parseInt(s.repsL);
-          if (!prs[ex.name] || vol > prs[ex.name].volume) {
-            prs[ex.name] = { weight: parseFloat(s.weightL), reps: parseInt(s.repsL), volume: vol, date: activeSession.date };
-          }
-        }
-      } else if (s.weight && s.reps) {
-        const vol = parseFloat(s.weight) * parseInt(s.reps);
-        if (!prs[ex.name] || vol > prs[ex.name].volume) {
-          prs[ex.name] = { weight: parseFloat(s.weight), reps: parseInt(s.reps), volume: vol, date: activeSession.date };
-        }
+        tryPR(ex.name, s.weightL, s.repsL);
+        tryPR(ex.name, s.weightR, s.repsR);
+      } else {
+        tryPR(ex.name, s.weight, s.reps);
       }
     });
   });
@@ -1842,11 +1878,134 @@ function completeWorkout() {
   switchTab('analysis');
 }
 
-function abandonSession() {
-  if (!confirm('ワークアウトを中断しますか？')) return;
+async function abandonSession() {
+  if (!await showConfirm('ワークアウトを中断しますか？', '中断する', true)) return;
   activeSession = null;
   saveActiveSession(null);
   renderRecord();
+}
+
+// ============================================================
+//  SETTINGS / DATA EXPORT & IMPORT
+// ============================================================
+
+function openSettingsModal() {
+  document.getElementById('settingsModal').classList.add('active');
+}
+function closeSettingsModal(e) {
+  if (e && e.target !== document.getElementById('settingsModal')) return;
+  document.getElementById('settingsModal').classList.remove('active');
+}
+
+function exportData() {
+  const data = {
+    version:  1,
+    exportedAt: new Date().toISOString(),
+    history:  getHistory(),
+    prs:      getPRs(),
+    gymDays:  getGymDays(),
+    session:  getActiveSession()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const d    = new Date();
+  a.href     = url;
+  a.download = `101training_backup_${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('✓ エクスポート完了');
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data || typeof data !== 'object') throw new Error('invalid');
+      if (!await showConfirm('現在のデータを上書きします。よろしいですか？', '上書き', true)) return;
+      if (Array.isArray(data.history))  saveHistory(data.history);
+      if (data.prs && typeof data.prs === 'object') savePRs(data.prs);
+      if (Array.isArray(data.gymDays))  saveGymDays(data.gymDays);
+      if (data.session) saveActiveSession(data.session);
+      activeSession = getActiveSession();
+      showToast('✓ インポート完了');
+      closeSettingsModal();
+      switchTab('home');
+    } catch (err) {
+      alert('ファイルの読み込みに失敗しました。正しいJSONファイルを選択してください。');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+let _confirmResolver = null;
+function showConfirm(message, okLabel, danger) {
+  document.getElementById('confirmMessage').textContent = message;
+  const okBtn = document.getElementById('confirmOkBtn');
+  okBtn.textContent = okLabel || 'OK';
+  if (danger) {
+    okBtn.style.background = '#ff4444';
+    okBtn.style.color = '#fff';
+  } else {
+    okBtn.style.background = '';
+    okBtn.style.color = '';
+  }
+  document.getElementById('confirmModal').classList.add('active');
+  return new Promise(resolve => { _confirmResolver = resolve; });
+}
+function _resolveConfirm(val) {
+  document.getElementById('confirmModal').classList.remove('active');
+  if (_confirmResolver) { _confirmResolver(val); _confirmResolver = null; }
+}
+
+async function deleteSession(sessionId) {
+  if (!await showConfirm('この記録を削除しますか？', '削除', true)) return;
+  const history = getHistory().filter(s => s.id !== sessionId);
+  saveHistory(history);
+  rebuildPRs();
+  showToast('✓ 記録を削除しました');
+  renderAnalysis();
+}
+
+function rebuildPRs() {
+  // 履歴からPRを再計算（削除された記録を反映）
+  const prs = {};
+  getHistory().forEach(session => {
+    (session.exercises || []).forEach(ex => {
+      (ex.sets || []).filter(s => s.done).forEach(s => {
+        const update = (weight, reps) => {
+          if (!weight || !reps) return;
+          const w = parseFloat(weight), r = parseInt(reps);
+          const vol = w * r;
+          if (!prs[ex.name] || vol > prs[ex.name].volume) {
+            prs[ex.name] = { weight: w, reps: r, volume: vol, date: session.date };
+          }
+        };
+        if (ex.bilateral) { update(s.weightL, s.repsL); update(s.weightR, s.repsR); }
+        else              { update(s.weight, s.reps); }
+      });
+    });
+  });
+  savePRs(prs);
+}
+
+async function clearAllData() {
+  if (!await showConfirm('すべての記録を削除します。この操作は取り消せません。続行しますか？', '削除する', true)) return;
+  if (!await showConfirm('本当によろしいですか？（最終確認）', '全削除', true)) return;
+  localStorage.removeItem('t101_history');
+  localStorage.removeItem('t101_prs');
+  localStorage.removeItem('t101_restdays');
+  localStorage.removeItem('t101_session');
+  activeSession = null;
+  showToast('✓ データを削除しました');
+  closeSettingsModal();
+  switchTab('home');
 }
 
 // ============================================================
@@ -2157,10 +2316,13 @@ function renderAnalysis() {
       const parts = [...new Set((s.exercises||[]).map(e => BODY_PARTS[e.part]?.label).filter(Boolean))].join('・');
       const sets  = (s.exercises||[]).reduce((acc, ex) => acc + ex.sets.filter(st => st.done).length, 0);
       return `
-        <div class="session-hist-item">
-          <div class="sh-date">${formatDateJP(s.date)}</div>
-          <div class="sh-title">${s.name}</div>
-          <div class="sh-meta">${parts} ／ ${sets}セット ／ ${vol.toLocaleString()}kg</div>
+        <div class="session-hist-item" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <div class="sh-date">${formatDateJP(s.date)}</div>
+            <div class="sh-title">${s.name}</div>
+            <div class="sh-meta">${parts} ／ ${sets}セット ／ ${vol.toLocaleString()}kg</div>
+          </div>
+          <button class="btn-icon btn" style="background:#2a1a1a;color:#ff6666;flex-shrink:0;" onclick="deleteSession('${s.id}')" title="削除">🗑</button>
         </div>`;
     }).join('');
   }
@@ -2334,6 +2496,10 @@ if ('serviceWorker' in navigator) {
             showUpdateBanner();
           }
         });
+      });
+      // アプリが再表示されたとき（ホーム画面から復帰等）に更新チェック
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update();
       });
     }).catch(() => {});
 
