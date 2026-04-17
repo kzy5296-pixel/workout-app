@@ -1078,12 +1078,14 @@ let activeSession   = null;
 let selectedIntensity = 'medium'; // light / medium / heavy
 let pendingMenuDay  = null; // {split, dayIdx}
 let timerState = {
-  active:   false,
-  paused:   false,
-  duration: 180,
-  remaining:180,
-  interval: null,
-  exName:   ''
+  active:    false,
+  paused:    false,
+  duration:  180,
+  remaining: 180,
+  endTime:   null,   // Date.now() + 残り秒数 * 1000
+  pausedAt:  null,   // 一時停止した時刻
+  interval:  null,
+  exName:    ''
 };
 
 // ============================================================
@@ -2080,10 +2082,12 @@ function startTimer(exName) {
     timerState.duration  = t.intervalSec;
   }
 
-  timerState.exName     = exName;
-  timerState.remaining  = timerState.duration;
-  timerState.active     = true;
-  timerState.paused     = false;
+  timerState.exName    = exName;
+  timerState.remaining = timerState.duration;
+  timerState.active    = true;
+  timerState.paused    = false;
+  timerState.endTime   = Date.now() + timerState.duration * 1000;
+  timerState.pausedAt  = null;
 
   // タイマーボタンのラベルと選択状態も強度に合わせて更新
   updateTimerButtons();
@@ -2095,11 +2099,12 @@ function startTimer(exName) {
 
   timerState.interval = setInterval(() => {
     if (!timerState.paused) {
-      timerState.remaining--;
+      // setInterval が止まっても endTime から正確に残り時間を再計算
+      timerState.remaining = Math.max(0, Math.round((timerState.endTime - Date.now()) / 1000));
       updateTimerDisplay();
       if (timerState.remaining <= 0) timerComplete();
     }
-  }, 1000);
+  }, 500); // 0.5秒ごとにチェックで精度アップ
 }
 
 function updateTimerDisplay() {
@@ -2133,12 +2138,23 @@ function skipTimer() {
 
 function pauseTimer() {
   timerState.paused = !timerState.paused;
+  if (timerState.paused) {
+    timerState.pausedAt = Date.now();
+  } else {
+    // 再開: 停止していた時間分だけ endTime を延長
+    if (timerState.pausedAt) {
+      timerState.endTime += Date.now() - timerState.pausedAt;
+      timerState.pausedAt = null;
+    }
+  }
   document.getElementById('timerPauseBtn').textContent = timerState.paused ? '再開' : '一時停止';
 }
 
 function setTimerDuration(secs) {
   timerState.duration  = secs;
   timerState.remaining = secs;
+  timerState.endTime   = Date.now() + secs * 1000;
+  timerState.pausedAt  = null;
   updateTimerDisplay();
   updateTimerButtons();
 }
@@ -2479,6 +2495,17 @@ function showToast(msg) {
   if (_toastTimer) clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
 }
+
+// ============================================================
+//  VISIBILITY CHANGE（画面復帰時にタイマーを再同期）
+// ============================================================
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && timerState.active && !timerState.paused) {
+    timerState.remaining = Math.max(0, Math.round((timerState.endTime - Date.now()) / 1000));
+    updateTimerDisplay();
+    if (timerState.remaining <= 0) timerComplete();
+  }
+});
 
 // ============================================================
 //  SERVICE WORKER
