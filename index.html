@@ -778,6 +778,47 @@
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    /* ===== SPLIT SELECTOR (UL対応 2行) ===== */
+    .split-selector { flex-wrap: wrap; }
+    .split-btn { flex: 1 0 calc(33% - 6px); min-width: 72px; font-size: 13px; padding: 10px 4px; }
+
+    /* ===== DATE INPUT ===== */
+    input[type="date"] {
+      background: #252525;
+      border: 1.5px solid #333;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 15px;
+      padding: 10px 12px;
+      min-height: 48px;
+      width: 100%;
+      font-family: inherit;
+      -webkit-appearance: none;
+      color-scheme: dark;
+    }
+    input[type="date"]:focus { outline: none; border-color: #e8ff00; }
+
+    /* ===== RPE BADGE ===== */
+    .rpe-badge {
+      background: #2a2a2a;
+      color: #aaa;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      letter-spacing: 0.03em;
+    }
+
+    /* ===== PHASE BANNER ===== */
+    .phase-banner {
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
   </style>
 </head>
 <body>
@@ -858,8 +899,32 @@
   <div class="modal-sheet" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
     <div class="modal-title">⚙️ 設定</div>
+
+    <div style="font-size:14px;font-weight:700;margin-bottom:8px;">💪 BIG3 MAX重量</div>
+    <div style="font-size:12px;color:#888;margin-bottom:10px;">UL分割の参考重量自動計算に使用します</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div>
+        <div style="font-size:11px;color:#888;margin-bottom:4px;text-align:center;">スクワット</div>
+        <input type="number" id="big3-squat" placeholder="kg" min="0" step="2.5" style="font-size:15px;">
+      </div>
+      <div>
+        <div style="font-size:11px;color:#888;margin-bottom:4px;text-align:center;">ベンチ</div>
+        <input type="number" id="big3-bench" placeholder="kg" min="0" step="2.5" style="font-size:15px;">
+      </div>
+      <div>
+        <div style="font-size:11px;color:#888;margin-bottom:4px;text-align:center;">デッドリフト</div>
+        <input type="number" id="big3-deadlift" placeholder="kg" min="0" step="2.5" style="font-size:15px;">
+      </div>
+    </div>
+
+    <div style="font-size:14px;font-weight:700;margin-bottom:6px;">📅 プログラム開始日</div>
+    <div style="font-size:12px;color:#888;margin-bottom:6px;">Week番号の自動計算に使用します（9週間プログラム）</div>
+    <input type="date" id="prog-start-date" style="margin-bottom:10px;">
+    <button class="btn btn-primary btn-sm" onclick="saveBIG3Settings()" style="margin-bottom:16px;">✓ BIG3・開始日を保存</button>
+
+    <div class="divider"></div>
     <div style="margin-bottom:8px;font-size:13px;color:#888;">データのバックアップ・復元ができます</div>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
       <button class="btn btn-primary" onclick="exportData()">📥 データをエクスポート</button>
       <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">📤 データをインポート</button>
       <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
@@ -926,7 +991,8 @@ const EXERCISES = {
     { name: 'シーテッドケーブルロウ',           rec: 12 },
     { name: 'ワンハンドダンベルロウ',           rec: 12, bilateral: true },
     { name: 'デッドリフト',                     rec: 8  },
-    { name: 'プーリーロウ',                     rec: 12 }
+    { name: 'プーリーロウ',                     rec: 12 },
+    { name: 'チェストサポーテッドロウ',          rec: 10 }
   ],
   legs: [
     { name: 'ブルガリアンスクワット',           rec: 10, bilateral: true },
@@ -972,7 +1038,8 @@ const EXERCISES = {
     { name: 'レッグレイズ',                     rec: 15 },
     { name: 'インクラインリバースクランチ',      rec: 12 },
     { name: 'V字シットアップ',                  rec: 10 },
-    { name: 'プランク',                         rec: 30 }
+    { name: 'プランク',                         rec: 30 },
+    { name: 'アブローラー',                     rec: 15 }
   ]
 };
 
@@ -1022,6 +1089,13 @@ const SPLIT_PATTERNS = {
     { label: 'B', parts: ['legs'] },
     { label: 'C', parts: ['shoulders', 'triceps'] },
     { label: 'D', parts: ['back', 'core'] }
+  ],
+  // Upper/Lower分割: Excelプログラム移植
+  'ul': [
+    { label: 'Upper A', parts: ['chest', 'back', 'shoulders', 'triceps', 'biceps'] },
+    { label: 'Lower A', parts: ['legs', 'core'] },
+    { label: 'Upper B', parts: ['shoulders', 'chest', 'back', 'triceps'] },
+    { label: 'Lower B', parts: ['legs', 'core'] }
   ]
 };
 
@@ -1067,6 +1141,131 @@ const REC_SETS_PER_EXERCISE  = 2;
 const REC_EX_PER_PART_MIN    = 2;
 const REC_EX_PER_PART_MAX    = 3;
 const TIMER_CIRCUMFERENCE    = 2 * Math.PI * 96; // ~603.19
+
+// ============================================================
+//  UPPER/LOWER PROGRAM DATA (Excelプログラム移植)
+// ============================================================
+
+const UL_DAYS = [
+  {
+    label: 'Upper A',
+    focus: '胸 · 背中 · 肩 · 腕',
+    exercises: [
+      { name: 'ベンチプレス',                    part: 'chest',     rpe: 7, compound: 'bench', sets: 3, recReps: 5  },
+      { name: 'ラットプルダウン',                 part: 'back',      rpe: 7, compound: null,    sets: 3, recReps: 10 },
+      { name: 'チェストサポーテッドロウ',          part: 'back',      rpe: 7, compound: null,    sets: 3, recReps: 10 },
+      { name: 'サイドレイズ',                     part: 'shoulders', rpe: 8, compound: null,    sets: 3, recReps: 13 },
+      { name: 'フェイスプル',                     part: 'shoulders', rpe: 8, compound: null,    sets: 3, recReps: 17 },
+      { name: 'ダンベルライイングエクステンション', part: 'triceps',   rpe: 8, compound: null,    sets: 3, recReps: 10 },
+      { name: 'ダンベルカール',                   part: 'biceps',    rpe: 8, compound: null,    sets: 3, recReps: 10 }
+    ]
+  },
+  {
+    label: 'Lower A',
+    focus: '脚 · 体幹',
+    exercises: [
+      { name: 'スクワット',              part: 'legs', rpe: 6, compound: 'squat', sets: 3, recReps: 5  },
+      { name: 'ルーマニアンデッドリフト', part: 'legs', rpe: 7, compound: null,    sets: 3, recReps: 10 },
+      { name: 'ブルガリアンスクワット',   part: 'legs', rpe: 7, compound: null,    sets: 3, recReps: 12, bilateral: true },
+      { name: 'カーフレイズ',            part: 'legs', rpe: 8, compound: null,    sets: 3, recReps: 17 },
+      { name: 'アブローラー',            part: 'core', rpe: 8, compound: null,    sets: 3, recReps: 13 }
+    ]
+  },
+  {
+    label: 'Upper B',
+    focus: '肩 · 胸三頭 · 背中',
+    exercises: [
+      { name: 'ショルダープレス',          part: 'shoulders', rpe: 7, compound: null, sets: 3, recReps: 7  },
+      { name: 'ナローグリップベンチプレス', part: 'triceps',   rpe: 7, compound: null, sets: 3, recReps: 7  },
+      { name: 'ワンハンドダンベルロウ',    part: 'back',      rpe: 7, compound: null, sets: 3, recReps: 8, bilateral: true },
+      { name: 'チンニング',               part: 'back',      rpe: 7, compound: null, sets: 3, recReps: 7  },
+      { name: 'ケーブルクロスオーバー',    part: 'chest',     rpe: 8, compound: null, sets: 3, recReps: 12 },
+      { name: 'サイドレイズ',             part: 'shoulders', rpe: 8, compound: null, sets: 3, recReps: 13 }
+    ]
+  },
+  {
+    label: 'Lower B',
+    focus: '脚 · 体幹',
+    exercises: [
+      { name: 'スクワット',       part: 'legs', rpe: 7, compound: 'squat', sets: 3, recReps: 5  },
+      { name: 'レッグプレス',     part: 'legs', rpe: 7, compound: null,    sets: 3, recReps: 12 },
+      { name: 'レッグカール',     part: 'legs', rpe: 8, compound: null,    sets: 3, recReps: 12 },
+      { name: 'カーフレイズ',     part: 'legs', rpe: 8, compound: null,    sets: 3, recReps: 17 },
+      { name: 'アブローラー',     part: 'core', rpe: 8, compound: null,    sets: 3, recReps: 13 }
+    ]
+  }
+];
+
+// Excelから移植した週別%RM（compound種目）
+const COMPOUND_PCT = {
+  bench: [0.78, 0.78, 0.80, 0.80, 0.82, 0.82, 0.85, 0.85, 0.75],
+  squat: [0.80, 0.80, 0.78, 0.82, 0.82, 0.82, 0.84, 0.87, 0.75]
+};
+
+function getCompoundPct(compound, week) {
+  const arr = COMPOUND_PCT[compound] || COMPOUND_PCT.bench;
+  return arr[Math.min((week || 1) - 1, 8)];
+}
+
+// BIG3 MAX重量
+function getBIG3()   { return load('t101_big3', { squat: 0, bench: 0, deadlift: 0 }); }
+function saveBIG3(b) { save('t101_big3', b); }
+
+// プログラム開始日
+function getProgStart()   { return load('t101_prog_start', null); }
+function saveProgStart(d) { save('t101_prog_start', d); }
+
+// 現在の週番号 (1〜9)
+function getProgWeek() {
+  const start = getProgStart();
+  if (!start) return null;
+  const days = Math.floor((Date.now() - new Date(start + 'T12:00:00')) / 86400000);
+  return Math.min(9, Math.floor(days / 7) + 1);
+}
+
+// フェーズ情報
+function getProgPhase(week) {
+  if (!week) return null;
+  if (week <= 4) return { label: 'Volume Progression', color: '#4fc3f7', icon: '📈', desc: 'セット数を増やして筋肉を適応させる期間' };
+  if (week <= 8) return { label: 'Intensity',          color: '#e8ff00', icon: '🔥', desc: '強度を上げて筋力・筋肥大を最大化' };
+  return             { label: 'Deload',               color: '#00c853', icon: '💤', desc: '回復週。重量・セット数を落としてリセット' };
+}
+
+// ULプログラム用セッション構築
+function buildULExercises(dayIdx) {
+  const ulDay = UL_DAYS[dayIdx];
+  const week  = getProgWeek() || 1;
+  const big3  = getBIG3();
+
+  return ulDay.exercises.map(ex => {
+    const prev = getPrevData(ex.name, ex.bilateral);
+    let w = '';
+
+    if (ex.compound && big3[ex.compound] > 0) {
+      const pct = getCompoundPct(ex.compound, week);
+      w = Math.round(big3[ex.compound] * pct / 2.5) * 2.5;
+    } else if (prev) {
+      w = ex.bilateral ? (prev.weightL || '') : (prev.weight || '');
+    }
+
+    const r   = ex.recReps;
+    const bil = !!ex.bilateral;
+    const makeSet = () => bil
+      ? { id: Math.random().toString(36).slice(2), weightL: w, repsL: r, weightR: w, repsR: r, done: false }
+      : { id: Math.random().toString(36).slice(2), weight: w, reps: r, done: false };
+
+    return {
+      id:        Math.random().toString(36).slice(2),
+      name:      ex.name,
+      part:      ex.part,
+      recReps:   r,
+      rpe:       ex.rpe,
+      intensity: null,
+      bilateral: bil,
+      sets:      Array.from({ length: ex.sets }, makeSet)
+    };
+  });
+}
 
 // ============================================================
 //  STATE
@@ -1367,6 +1566,19 @@ function renderHome() {
       </div>`;
   }
 
+  // プログラムフェーズバナー
+  const week  = getProgWeek();
+  const phase = getProgPhase(week);
+  const phaseHTML = phase ? `
+    <div class="card" style="border-left:3px solid ${phase.color};margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+        <span style="font-size:15px;">${phase.icon}</span>
+        <span style="color:${phase.color};font-weight:700;font-size:14px;">${phase.label}</span>
+        <span style="background:${phase.color}22;color:${phase.color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:100px;">Week ${week} / 9</span>
+      </div>
+      <div style="font-size:12px;color:#888;">${phase.desc}</div>
+    </div>` : '';
+
   // プロフィール・おすすめバナー
   const focusHTML = `
     <div class="card" style="border-left:3px solid #e8ff00;margin-bottom:12px;">
@@ -1381,6 +1593,7 @@ function renderHome() {
       <div class="date-str">${formatDateJP(today)}</div>
     </div>
     ${activeWarnHTML}
+    ${phaseHTML}
     ${focusHTML}
     <div class="advice-box">
       <div class="advice-title">💡 今週のアドバイス</div>
@@ -1414,40 +1627,112 @@ function resumeSession() {
 // ============================================================
 
 function renderMenu() {
-  const el   = document.getElementById('screen-menu');
-  const days = SPLIT_PATTERNS[selectedSplit];
+  const el    = document.getElementById('screen-menu');
+  const isUL  = selectedSplit === 'ul';
+  const week  = getProgWeek();
+  const phase = getProgPhase(week);
+  const big3  = getBIG3();
 
-  const daysHTML = days.map((day, i) => {
-    const partLabels = day.parts.map(p => BODY_PARTS[p].label).join(' + ');
-    const exercises  = menuExercises(day.parts);
-    const exRows = exercises.map(ex =>
-      `<div class="exercise-row">
-        <div>
-          <div class="ex-name">${ex.name}</div>
-          <div class="ex-meta">${REC_SETS_PER_EXERCISE}セット × 推奨${ex.rec}rep</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <a class="btn-video" href="${getVideoUrl(ex.name)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">▶ 動画</a>
-          <span class="badge ${BODY_PARTS[ex.part].badge}">${BODY_PARTS[ex.part].label}</span>
-        </div>
-      </div>`
-    ).join('');
+  // フェーズバナー（ULのみ）
+  let phaseBannerHTML = '';
+  if (isUL) {
+    if (phase) {
+      phaseBannerHTML = `
+        <div class="card" style="border-left:3px solid ${phase.color};margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="font-size:16px;">${phase.icon}</span>
+            <span style="color:${phase.color};font-weight:700;">${phase.label}</span>
+            <span style="background:${phase.color}22;color:${phase.color};font-size:12px;font-weight:700;padding:2px 8px;border-radius:100px;">Week ${week} / 9</span>
+          </div>
+          <div style="font-size:13px;color:#888;">${phase.desc}</div>
+        </div>`;
+    } else {
+      phaseBannerHTML = `
+        <div class="card" style="border-left:3px solid #555;margin-bottom:12px;">
+          <div style="font-size:13px;color:#aaa;margin-bottom:8px;">⚙️ 設定でBIG3重量・開始日を入力すると重量自動計算＆週次プログレッション管理ができます</div>
+          <button class="btn btn-primary btn-sm" onclick="openSettingsModal()">BIG3・開始日を設定する</button>
+        </div>`;
+    }
+  }
 
-    return `
-      <div class="day-card" id="dayCard_${i}">
-        <div class="day-header" onclick="toggleDayCard(${i})">
-          <span class="day-label">Day ${day.label}</span>
-          <span class="day-parts">${partLabels}</span>
-          <span class="chevron">▼</span>
-        </div>
-        <div class="day-body">
-          <div style="padding-top:12px;">${exRows}</div>
-          <button class="btn btn-primary mt-12" onclick="loadMenuDay('${selectedSplit}',${i})">
-            このメニューで開始
-          </button>
-        </div>
-      </div>`;
-  }).join('');
+  // デイカード生成
+  let daysHTML;
+  if (isUL) {
+    daysHTML = UL_DAYS.map((ulDay, i) => {
+      const exRows = ulDay.exercises.map(ex => {
+        let weightHint = '';
+        if (ex.compound && big3[ex.compound] > 0 && week) {
+          const pct = getCompoundPct(ex.compound, week);
+          const w   = Math.round(big3[ex.compound] * pct / 2.5) * 2.5;
+          weightHint = `<span style="color:#e8ff00;font-size:11px;font-weight:700;margin-left:4px;">≈${w}kg</span>`;
+        }
+        return `
+          <div class="exercise-row">
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span class="ex-name">${ex.name}</span>
+                <span class="rpe-badge">RPE ${ex.rpe}</span>
+                ${weightHint}
+              </div>
+              <div class="ex-meta">${ex.sets}セット × ${ex.recReps}rep目安</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+              <a class="btn-video" href="${getVideoUrl(ex.name)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">▶ 動画</a>
+              <span class="badge ${BODY_PARTS[ex.part].badge}">${BODY_PARTS[ex.part].label}</span>
+            </div>
+          </div>`;
+      }).join('');
+      return `
+        <div class="day-card" id="dayCard_${i}">
+          <div class="day-header" onclick="toggleDayCard(${i})">
+            <span class="day-label">${ulDay.label}</span>
+            <span class="day-parts">${ulDay.focus}</span>
+            <span class="chevron">▼</span>
+          </div>
+          <div class="day-body">
+            <div style="padding-top:12px;">${exRows}</div>
+            <button class="btn btn-primary mt-12" onclick="startULSession(${i})">
+              このメニューで開始
+            </button>
+          </div>
+        </div>`;
+    }).join('');
+  } else {
+    daysHTML = SPLIT_PATTERNS[selectedSplit].map((day, i) => {
+      const partLabels = day.parts.map(p => BODY_PARTS[p].label).join(' + ');
+      const exercises  = menuExercises(day.parts);
+      const exRows = exercises.map(ex =>
+        `<div class="exercise-row">
+          <div>
+            <div class="ex-name">${ex.name}</div>
+            <div class="ex-meta">${REC_SETS_PER_EXERCISE}セット × 推奨${ex.rec}rep</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <a class="btn-video" href="${getVideoUrl(ex.name)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">▶ 動画</a>
+            <span class="badge ${BODY_PARTS[ex.part].badge}">${BODY_PARTS[ex.part].label}</span>
+          </div>
+        </div>`
+      ).join('');
+      return `
+        <div class="day-card" id="dayCard_${i}">
+          <div class="day-header" onclick="toggleDayCard(${i})">
+            <span class="day-label">Day ${day.label}</span>
+            <span class="day-parts">${partLabels}</span>
+            <span class="chevron">▼</span>
+          </div>
+          <div class="day-body">
+            <div style="padding-top:12px;">${exRows}</div>
+            <button class="btn btn-primary mt-12" onclick="loadMenuDay('${selectedSplit}',${i})">
+              このメニューで開始
+            </button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  const descHTML = isUL
+    ? 'Excelプログラム移植: 週4日 Upper/Lower分割 · RPE管理 · BIG3から重量自動計算'
+    : `山本義徳 101理論: 1種目 ${REC_SETS_PER_EXERCISE}セット ／ 1部位 ${REC_EX_PER_PART_MIN}〜${REC_EX_PER_PART_MAX}種目`;
 
   el.innerHTML = `
     <div class="page-header">
@@ -1456,16 +1741,16 @@ function renderMenu() {
     <div class="card">
       <div class="card-title">分割パターン</div>
       <div class="split-selector">
+        <button class="split-btn ${isUL?'active':''}" onclick="setSplit('ul')" style="${isUL?'':''}">UL分割</button>
         <button class="split-btn ${selectedSplit===2?'active':''}" onclick="setSplit(2)">2分割①</button>
         <button class="split-btn ${selectedSplit==='2b'?'active':''}" onclick="setSplit('2b')">2分割②</button>
         <button class="split-btn ${selectedSplit===3?'active':''}" onclick="setSplit(3)">3分割①</button>
         <button class="split-btn ${selectedSplit==='3b'?'active':''}" onclick="setSplit('3b')">3分割②</button>
         <button class="split-btn ${selectedSplit===4?'active':''}" onclick="setSplit(4)">4分割</button>
       </div>
-      <div style="font-size:13px;color:#666;line-height:1.6;">
-        山本義徳 101理論: 1種目 ${REC_SETS_PER_EXERCISE}セット ／ 1部位 ${REC_EX_PER_PART_MIN}〜${REC_EX_PER_PART_MAX}種目
-      </div>
+      <div style="font-size:13px;color:#666;line-height:1.6;">${descHTML}</div>
     </div>
+    ${phaseBannerHTML}
     ${daysHTML}`;
 }
 
@@ -1479,16 +1764,30 @@ function menuExercises(parts) {
   return list;
 }
 
-function setSplit(n) { selectedSplit = n; renderMenu(); }
+function setSplit(n) { selectedSplit = n; save('t101_split', n); renderMenu(); }
 
 function toggleDayCard(i) {
   document.getElementById('dayCard_' + i).classList.toggle('expanded');
 }
 
 function loadMenuDay(split, dayIdx) {
-  // まず強度選択モーダルを表示
   pendingMenuDay = { split, dayIdx };
   openIntensityModal();
+}
+
+function startULSession(dayIdx) {
+  if (!getProgStart()) saveProgStart(todayStr());
+  const ulDay = UL_DAYS[dayIdx];
+  activeSession = {
+    id:        Date.now().toString(),
+    name:      `💪 ${ulDay.label} — ${ulDay.focus}`,
+    date:      todayStr(),
+    startTime: Date.now(),
+    intensity: null,
+    exercises: buildULExercises(dayIdx)
+  };
+  saveActiveSession(activeSession);
+  switchTab('record');
 }
 
 function openIntensityModal() {
@@ -1628,6 +1927,7 @@ function renderRecord() {
             <span class="badge ${BODY_PARTS[ex.part].badge}">${BODY_PARTS[ex.part].label}</span>
             <span class="ex-card-name">${ex.name}</span>
             ${ex.bilateral ? '<span style="font-size:11px;color:#e8ff00;background:#e8ff0015;border:1px solid #e8ff0040;border-radius:4px;padding:2px 6px;font-weight:700;">片側</span>' : ''}
+            ${ex.rpe ? `<span class="rpe-badge">RPE ${ex.rpe}</span>` : ''}
             <a class="btn-video" href="${getVideoUrl(ex.name)}" target="_blank" rel="noopener">▶ 動画</a>
           </div>
           <button class="btn-icon btn" onclick="removeExercise(${exIdx})" title="削除">✕</button>
@@ -1892,7 +2192,28 @@ async function abandonSession() {
 // ============================================================
 
 function openSettingsModal() {
+  const big3  = getBIG3();
+  const start = getProgStart();
+  const sq = document.getElementById('big3-squat');
+  const bn = document.getElementById('big3-bench');
+  const dl = document.getElementById('big3-deadlift');
+  const sd = document.getElementById('prog-start-date');
+  if (sq) sq.value = big3.squat    || '';
+  if (bn) bn.value = big3.bench    || '';
+  if (dl) dl.value = big3.deadlift || '';
+  if (sd) sd.value = start         || '';
   document.getElementById('settingsModal').classList.add('active');
+}
+
+function saveBIG3Settings() {
+  const squat    = parseFloat(document.getElementById('big3-squat').value)    || 0;
+  const bench    = parseFloat(document.getElementById('big3-bench').value)    || 0;
+  const deadlift = parseFloat(document.getElementById('big3-deadlift').value) || 0;
+  const start    = document.getElementById('prog-start-date').value;
+  saveBIG3({ squat, bench, deadlift });
+  if (start) saveProgStart(start);
+  showToast('✓ BIG3・開始日を保存しました');
+  renderHome();
 }
 function closeSettingsModal(e) {
   if (e && e.target !== document.getElementById('settingsModal')) return;
@@ -1901,12 +2222,14 @@ function closeSettingsModal(e) {
 
 function exportData() {
   const data = {
-    version:  1,
+    version:   1,
     exportedAt: new Date().toISOString(),
-    history:  getHistory(),
-    prs:      getPRs(),
-    gymDays:  getGymDays(),
-    session:  getActiveSession()
+    history:   getHistory(),
+    prs:       getPRs(),
+    gymDays:   getGymDays(),
+    session:   getActiveSession(),
+    big3:      getBIG3(),
+    progStart: getProgStart()
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -1934,6 +2257,8 @@ function importData(event) {
       if (data.prs && typeof data.prs === 'object') savePRs(data.prs);
       if (Array.isArray(data.gymDays))  saveGymDays(data.gymDays);
       if (data.session) saveActiveSession(data.session);
+      if (data.big3 && typeof data.big3 === 'object') saveBIG3(data.big3);
+      if (data.progStart) saveProgStart(data.progStart);
       activeSession = getActiveSession();
       showToast('✓ インポート完了');
       closeSettingsModal();
@@ -2004,6 +2329,8 @@ async function clearAllData() {
   localStorage.removeItem('t101_prs');
   localStorage.removeItem('t101_restdays');
   localStorage.removeItem('t101_session');
+  localStorage.removeItem('t101_big3');
+  localStorage.removeItem('t101_prog_start');
   activeSession = null;
   showToast('✓ データを削除しました');
   closeSettingsModal();
@@ -2569,6 +2896,7 @@ function showUpdateBanner() {
 
 const _saved = getActiveSession();
 if (_saved) activeSession = _saved;
+selectedSplit = load('t101_split', 2);
 initDefaultPRs();
 renderHome();
 </script>
