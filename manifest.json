@@ -1,0 +1,23 @@
+{
+  "name": "101トレーニング",
+  "short_name": "101Train",
+  "description": "山本義徳式トレーニング管理アプリ",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f0f0f",
+  "theme_color": "#e8ff00",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='%230f0f0f'/><text x='96' y='130' font-size='100' text-anchor='middle' fill='%23e8ff00'>💪</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%230f0f0f'/><text x='256' y='340' font-size='260' text-anchor='middle' fill='%23e8ff00'>💪</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

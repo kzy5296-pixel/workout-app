@@ -1613,7 +1613,6 @@ function renderRecord() {
           </div>`;
         })() : ''}
       </div>
-      <button class="btn btn-outline btn-sm" onclick="abandonSession()">中断</button>
     </div>
     <div class="volume-display">
       <div>
@@ -1633,8 +1632,11 @@ function renderRecord() {
     <button class="btn btn-secondary" style="margin-bottom:12px;" onclick="openAddExModal()">
       ＋ 種目を追加
     </button>
-    <button class="btn btn-primary" style="background:#00c853;color:#fff;margin-bottom:24px;" onclick="completeWorkout()">
+    <button class="btn btn-primary" style="background:#00c853;color:#fff;margin-bottom:12px;" onclick="completeWorkout()">
       ✓ ワークアウト完了
+    </button>
+    <button class="btn btn-outline" style="margin-bottom:24px;color:#888;border-color:#333;" onclick="abandonSession()">
+      中断する
     </button>`;
 }
 
