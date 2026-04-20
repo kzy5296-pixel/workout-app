@@ -1488,6 +1488,13 @@ function getPrevWeight(exName, bilateral) {
   return `前回: ${prev.weight}kg × ${prev.reps}`;
 }
 
+function intensityBadge(intensity) {
+  if (!intensity) return '';
+  const t = INTENSITY_TYPES[intensity];
+  if (!t) return '';
+  return `<span style="background:${t.color}22;color:${t.color};font-size:11px;font-weight:700;padding:2px 9px;border-radius:100px;white-space:nowrap;flex-shrink:0;">${t.emoji} ${t.label}</span>`;
+}
+
 function calcSessionVolume(session) {
   let total = 0;
   (session.exercises || []).forEach(ex => {
@@ -1549,7 +1556,10 @@ function renderHome() {
       recentHTML += `
         <div class="history-item">
           <div class="hist-date">${formatDateJP(s.date)}</div>
-          <div class="hist-title">${s.name || 'ワークアウト'}</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0;">
+            <span class="hist-title" style="margin:0;">${s.name || 'ワークアウト'}</span>
+            ${intensityBadge(s.intensity)}
+          </div>
           <div class="hist-meta">${partList} ／ 総ボリューム ${vol.toLocaleString()}kg</div>
         </div>`;
     });
@@ -2662,7 +2672,10 @@ function renderAnalysis() {
         <div class="session-hist-item" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
           <div style="flex:1;min-width:0;">
             <div class="sh-date">${formatDateJP(s.date)}</div>
-            <div class="sh-title">${s.name}</div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:2px 0;">
+              <span class="sh-title" style="margin:0;">${s.name}</span>
+              ${intensityBadge(s.intensity)}
+            </div>
             <div class="sh-meta">${parts} ／ ${sets}セット ／ ${vol.toLocaleString()}kg</div>
           </div>
           <button class="btn-icon btn" style="background:#2a1a1a;color:#ff6666;flex-shrink:0;" onclick="deleteSession('${s.id}')" title="削除">🗑</button>
