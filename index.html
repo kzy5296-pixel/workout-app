@@ -2083,10 +2083,9 @@ function renderGuide() {
   if (entries.length === 0) {
     cardsHTML = `<div class="guide-empty">該当する種目が見つかりません</div>`;
   } else {
-    entries.forEach(([name, d]) => {
+    entries.forEach(([name, d], idx) => {
       const mainPhase = d.phase[0];
       const dotCls = mainPhase === 'h' ? 'h' : mainPhase === 'm' ? 'm' : 'l';
-      const phaseLabel = mainPhase === 'h' ? '高重量' : mainPhase === 'm' ? '中重量' : '低重量';
       const recRep = mainPhase === 'h' ? '5〜7rep' : mainPhase === 'm' ? '8〜12rep' : '15〜25rep';
       const muscleHTML = (d.muscle||[]).map(m => `<span class="guide-tag muscle">${m}</span>`).join('');
       const phaseHTML  = d.phase.map(p => {
@@ -2094,7 +2093,7 @@ function renderGuide() {
         return `<span class="guide-tag phase">${lb}</span>`;
       }).join('');
       const tipsHTML = (d.tips||[]).map(t => `<li>${t}</li>`).join('');
-      const id = 'gc-' + name.replace(/[^a-zA-Z0-9]/g,'_');
+      const id = 'gc' + idx;   // ← インデックス番号ベースで必ずユニーク
       cardsHTML += `
         <div class="guide-card" onclick="toggleGuideCard('${id}')">
           <div class="guide-card-header">
