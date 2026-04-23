@@ -1,4 +1,4 @@
-const CACHE_NAME = '101training-v6';
+const CACHE_NAME = '101training-v8';
 const ASSETS = [
   './',
   './index.html',
@@ -25,6 +25,47 @@ self.addEventListener('activate', event => {
       return self.clients.matchAll({ type: 'window' }).then(clients => {
         clients.forEach(client => client.postMessage({ type: 'SW_UPDATED' }));
       });
+    })
+  );
+});
+
+// ===== インターバルタイマー通知（バックグラウンド対応）=====
+let _timerTimeout = null;
+
+self.addEventListener('message', event => {
+  const d = event.data;
+  if (!d) return;
+
+  if (d.type === 'SCHEDULE_TIMER') {
+    if (_timerTimeout) { clearTimeout(_timerTimeout); _timerTimeout = null; }
+    const delay = Math.max(0, d.endTime - Date.now());
+    _timerTimeout = setTimeout(() => {
+      _timerTimeout = null;
+      self.registration.showNotification('⏱️ インターバル終了！', {
+        body: `${d.exName} — 次のセットへ 💪`,
+        icon:    './icon-192.png',
+        badge:   './icon-192.png',
+        vibrate: [200, 100, 200, 100, 400],
+        tag:     'interval-timer',
+        renotify: true,
+        data:    { url: self.registration.scope }
+      });
+    }, delay);
+  }
+
+  if (d.type === 'CANCEL_TIMER') {
+    if (_timerTimeout) { clearTimeout(_timerTimeout); _timerTimeout = null; }
+  }
+});
+
+// 通知タップで該当PWAを前面に
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || self.registration.scope;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+      const found = clients.find(c => c.url.startsWith(self.registration.scope));
+      return found ? found.focus() : self.clients.openWindow(url);
     })
   );
 });

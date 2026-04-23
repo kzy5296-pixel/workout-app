@@ -968,78 +968,80 @@ const BODY_PARTS = {
   core:      { label: '体幹', badge: 'badge-core' }
 };
 
+// t: RPEタグ ['h'=高重量, 'm'=中重量, 'l'=低重量]  bilateral: 左右別記録
 const EXERCISES = {
   chest: [
-    { name: 'ダンベルフライ',                   rec: 12 },
-    { name: 'インクラインダンベルフライ',        rec: 12 },
-    { name: 'ダンベルプレス',                   rec: 10 },
-    { name: 'インクラインダンベルプレス',        rec: 10 },
-    { name: 'ディップス',                       rec: 10 },
-    { name: 'ベンチプレス',                     rec: 10 },
-    { name: 'インクラインベンチプレス',          rec: 12 },
-    { name: 'ケーブルクロスオーバー',           rec: 15 },
-    { name: 'ペックデックフライ',               rec: 12 }
+    { name: 'ベンチプレス',              rec: 10, t: ['h','m'] },
+    { name: 'インクラインベンチプレス',   rec: 12, t: ['h','m'] },
+    { name: 'ダンベルプレス',            rec: 10, t: ['m']     },
+    { name: 'インクラインダンベルプレス', rec: 10, t: ['m']     },
+    { name: 'ディップス',               rec: 10, t: ['m']     },
+    { name: 'ダンベルフライ',            rec: 12, t: ['l','m'] },
+    { name: 'インクラインダンベルフライ', rec: 12, t: ['l','m'] },
+    { name: 'ケーブルクロスオーバー',    rec: 15, t: ['l']     },
+    { name: 'ペックデックフライ',        rec: 12, t: ['l']     }
   ],
   back: [
-    { name: 'ラウンドロウ',                     rec: 8  },
-    { name: 'SSCチンニング',                    rec: 8  },
-    { name: '山本スペシャルチンニング',          rec: 8  },
-    { name: 'チンニング',                       rec: 8  },
-    { name: 'ラットプルダウン',                 rec: 10 },
-    { name: 'ダンベルベントオーバーロウ',        rec: 10 },
-    { name: 'ベントオーバーバーベルロウ',        rec: 10 },
-    { name: 'シーテッドケーブルロウ',           rec: 12 },
-    { name: 'ワンハンドダンベルロウ',           rec: 12, bilateral: true },
-    { name: 'デッドリフト',                     rec: 8  },
-    { name: 'プーリーロウ',                     rec: 12 },
-    { name: 'チェストサポーテッドロウ',          rec: 10 }
+    { name: 'デッドリフト',              rec: 8,  t: ['h']     },
+    { name: 'チンニング',                rec: 8,  t: ['h','m'] },
+    { name: 'SSCチンニング',             rec: 8,  t: ['h']     },
+    { name: 'ベントオーバーバーベルロウ', rec: 10, t: ['h','m'] },
+    { name: 'ラットプルダウン',          rec: 10, t: ['m']     },
+    { name: 'ダンベルベントオーバーロウ', rec: 10, t: ['m']     },
+    { name: 'シーテッドケーブルロウ',    rec: 12, t: ['m']     },
+    { name: 'プーリーロウ',              rec: 12, t: ['m']     },
+    { name: 'ラウンドロウ',              rec: 8,  t: ['l','m'] },
+    { name: '山本スペシャルチンニング',   rec: 8,  t: ['l','m'] },
+    { name: 'ワンハンドダンベルロウ',    rec: 12, t: ['l','m'], bilateral: true },
+    { name: 'チェストサポーテッドロウ',  rec: 10, t: ['l','m'] }
   ],
   legs: [
-    { name: 'ブルガリアンスクワット',           rec: 10, bilateral: true },
-    { name: 'レッグプレス',                     rec: 12 },
-    { name: 'ハックスクワット',                 rec: 12 },
-    { name: 'スクワット',                       rec: 10 },
-    { name: 'ワイドスクワット',                 rec: 12 },
-    { name: 'ルーマニアンデッドリフト',          rec: 10 },
-    { name: 'ノルディックハムカール',           rec: 8  },
-    { name: 'レッグカール',                     rec: 12 },
-    { name: 'レッグエクステンション',           rec: 15 },
-    { name: 'カーフレイズ',                     rec: 15 }
+    { name: 'スクワット',               rec: 10, t: ['h','m'] },
+    { name: 'ルーマニアンデッドリフト',  rec: 10, t: ['h','m'] },
+    { name: 'レッグプレス',             rec: 12, t: ['m']     },
+    { name: 'ハックスクワット',         rec: 12, t: ['m']     },
+    { name: 'ブルガリアンスクワット',   rec: 10, t: ['m','l'], bilateral: true },
+    { name: 'ワイドスクワット',         rec: 12, t: ['l','m'] },
+    { name: 'ノルディックハムカール',   rec: 8,  t: ['l','m'] },
+    { name: 'レッグカール',             rec: 12, t: ['l']     },
+    { name: 'レッグエクステンション',   rec: 15, t: ['l']     },
+    { name: 'カーフレイズ',             rec: 15, t: ['l']     }
   ],
   shoulders: [
-    { name: 'インクラインサイドレイズ',          rec: 12, bilateral: true },
-    { name: 'サイドレイズ',                     rec: 15 },
-    { name: 'アップライトロウ',                 rec: 12 },
-    { name: 'ショルダープレス',                 rec: 10 },
-    { name: 'アーノルドプレス',                 rec: 10 },
-    { name: 'フロントレイズ',                   rec: 12 },
-    { name: 'リアデルトフライ',                 rec: 15 },
-    { name: 'サイドライングリアレイズ',          rec: 15, bilateral: true },
-    { name: 'フェイスプル',                     rec: 15 }
+    { name: 'ショルダープレス',          rec: 10, t: ['h','m'] },
+    { name: 'アーノルドプレス',          rec: 10, t: ['m']     },
+    { name: 'アップライトロウ',          rec: 12, t: ['m']     },
+    { name: 'フロントレイズ',            rec: 12, t: ['m','l'] },
+    { name: 'サイドレイズ',              rec: 15, t: ['l','m'] },
+    { name: 'インクラインサイドレイズ',  rec: 12, t: ['l'],     bilateral: true },
+    { name: '片手ショルダープレス',      rec: 10, t: ['l','m'], bilateral: true },
+    { name: 'リアデルトフライ',          rec: 15, t: ['l']     },
+    { name: 'サイドライングリアレイズ',  rec: 15, t: ['l'],     bilateral: true },
+    { name: 'フェイスプル',              rec: 15, t: ['l']     }
   ],
   biceps: [
-    { name: 'インクラインダンベルカール',        rec: 12 },
-    { name: 'ハンマーカール',                   rec: 12 },
-    { name: 'バーベルカール',                   rec: 12 },
-    { name: 'ダンベルカール',                   rec: 12 },
-    { name: 'コンセントレーションカール',        rec: 12, bilateral: true }
+    { name: 'バーベルカール',            rec: 12, t: ['h','m'] },
+    { name: 'ダンベルカール',            rec: 12, t: ['m']     },
+    { name: 'ハンマーカール',            rec: 12, t: ['m','l'], bilateral: true },
+    { name: 'インクラインダンベルカール', rec: 12, t: ['l'],     bilateral: true },
+    { name: 'コンセントレーションカール', rec: 12, t: ['l'],     bilateral: true }
   ],
   triceps: [
-    { name: 'ダンベルライイングエクステンション', rec: 8  },
-    { name: 'スカルクラッシャー',               rec: 10 },
-    { name: 'トライセプスプレスダウン',          rec: 12 },
-    { name: 'ナローグリップベンチプレス',        rec: 10 },
-    { name: 'キックバック',                     rec: 12, bilateral: true },
-    { name: 'オーバーヘッドエクステンション',   rec: 12 }
+    { name: 'ナローグリップベンチプレス',       rec: 10, t: ['h','m'] },
+    { name: 'スカルクラッシャー',               rec: 10, t: ['h','m'] },
+    { name: 'ダンベルライイングエクステンション', rec: 8,  t: ['m']     },
+    { name: 'トライセプスプレスダウン',         rec: 12, t: ['m','l'] },
+    { name: 'オーバーヘッドエクステンション',   rec: 12, t: ['l','m'] },
+    { name: 'キックバック',                     rec: 12, t: ['l'],     bilateral: true }
   ],
   core: [
-    { name: 'クランチ',                         rec: 20 },
-    { name: 'バイシクルクランチ',               rec: 15 },
-    { name: 'レッグレイズ',                     rec: 15 },
-    { name: 'インクラインリバースクランチ',      rec: 12 },
-    { name: 'V字シットアップ',                  rec: 10 },
-    { name: 'プランク',                         rec: 30 },
-    { name: 'アブローラー',                     rec: 15 }
+    { name: 'アブローラー',              rec: 15, t: ['m','l'] },
+    { name: 'V字シットアップ',           rec: 10, t: ['m']     },
+    { name: 'インクラインリバースクランチ',rec: 12, t: ['m','l'] },
+    { name: 'レッグレイズ',              rec: 15, t: ['l','m'] },
+    { name: 'バイシクルクランチ',        rec: 15, t: ['l']     },
+    { name: 'クランチ',                  rec: 20, t: ['l']     },
+    { name: 'プランク',                  rec: 30, t: ['l']     }
   ]
 };
 
@@ -1740,9 +1742,10 @@ function renderMenu() {
     }).join('');
   }
 
+  const rpeLabel = { heavy: '🔴 高重量', medium: '🟡 中重量', light: '🔵 低重量' }[selectedIntensity] || '🟡 中重量';
   const descHTML = isUL
     ? 'Excelプログラム移植: 週4日 Upper/Lower分割 · RPE管理 · BIG3から重量自動計算'
-    : `山本義徳 101理論: 1種目 ${REC_SETS_PER_EXERCISE}セット ／ 1部位 ${REC_EX_PER_PART_MIN}〜${REC_EX_PER_PART_MAX}種目`;
+    : `山本義徳 101理論 ／ 種目プレビュー：${rpeLabel}日ベース（開始時のRPE選択で種目・セット数が自動切替）`;
 
   el.innerHTML = `
     <div class="page-header">
@@ -1764,11 +1767,21 @@ function renderMenu() {
     ${daysHTML}`;
 }
 
+// RPEタグで種目を絞り込むヘルパー
+function _rpeTag() {
+  return { heavy: 'h', medium: 'm', light: 'l' }[selectedIntensity] || 'm';
+}
+function _filterByRpe(exList) {
+  const tag = _rpeTag();
+  const filtered = exList.filter(ex => !ex.t || ex.t.includes(tag));
+  return filtered.length >= REC_EX_PER_PART_MIN ? filtered : exList;
+}
+
 function menuExercises(parts) {
   const list = [];
   parts.forEach(part => {
-    EXERCISES[part].slice(0, REC_EX_PER_PART_MIN).forEach(ex => {
-      list.push({ name: ex.name, part, rec: ex.rec });
+    _filterByRpe(EXERCISES[part]).slice(0, REC_EX_PER_PART_MIN).forEach(ex => {
+      list.push({ name: ex.name, part, rec: ex.rec, bilateral: !!ex.bilateral });
     });
   });
   return list;
@@ -1865,18 +1878,24 @@ function confirmIntensity() {
 function buildExercises(parts) {
   const list      = [];
   const intensity = INTENSITY_TYPES[selectedIntensity];
+  // 低重量日はデフォルト3セット、高・中は2セット（Feature 4）
+  const numSets   = selectedIntensity === 'light' ? 3 : 2;
 
   parts.forEach(part => {
-    EXERCISES[part].slice(0, REC_EX_PER_PART_MIN).forEach(ex => {
-      const prev     = getPrevData(ex.name, ex.bilateral);
-      const r        = intensity.recReps;
+    // RPEに合った種目を選択（Feature 5）
+    _filterByRpe(EXERCISES[part]).slice(0, REC_EX_PER_PART_MIN).forEach(ex => {
+      const prev      = getPrevData(ex.name, ex.bilateral);
+      const r         = intensity.recReps;
       const bilateral = !!ex.bilateral;
 
       let w = '';
       if (prev) {
-        const rm1  = Math.round(prev.weight / (1.0278 - 0.0278 * prev.reps));
-        const calc = Math.round(rm1 * intensity.pct / 2.5) * 2.5;
-        w = calc > 0 ? calc : prev.weight;
+        const wRef = bilateral ? (prev.weightL || prev.weight || 0) : (prev.weight || 0);
+        if (wRef > 0) {
+          const rm1  = Math.round(wRef / (1.0278 - 0.0278 * (prev.repsL || prev.reps || 8)));
+          const calc = Math.round(rm1 * intensity.pct / 2.5) * 2.5;
+          w = calc > 0 ? calc : wRef;
+        }
       }
 
       const makeSet = () => bilateral
@@ -1890,7 +1909,7 @@ function buildExercises(parts) {
         recReps:   r,
         intensity: selectedIntensity,
         bilateral,
-        sets: [ makeSet(), makeSet() ]
+        sets: Array.from({ length: numSets }, makeSet)
       });
     });
   });
@@ -2410,8 +2429,27 @@ function addExToSession(name, part, rec, bilateral) {
 //  TIMER
 // ============================================================
 
+// ===== 通知スケジューリング（SW経由バックグラウンド対応）=====
+function _scheduleNotification(exName, endTime) {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.ready.then(reg => {
+    reg.active && reg.active.postMessage({ type: 'SCHEDULE_TIMER', endTime, exName });
+  }).catch(() => {});
+}
+function _cancelNotification() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.ready.then(reg => {
+    reg.active && reg.active.postMessage({ type: 'CANCEL_TIMER' });
+  }).catch(() => {});
+}
+
 function startTimer(exName) {
   stopTimer();
+
+  // 通知権限リクエスト（初回）
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
 
   // 強度に応じてインターバル時間を自動設定
   if (activeSession && activeSession.intensity) {
@@ -2425,6 +2463,9 @@ function startTimer(exName) {
   timerState.paused    = false;
   timerState.endTime   = Date.now() + timerState.duration * 1000;
   timerState.pausedAt  = null;
+
+  // バックグラウンド通知をスケジュール
+  _scheduleNotification(exName, timerState.endTime);
 
   // タイマーボタンのラベルと選択状態も強度に合わせて更新
   updateTimerButtons();
@@ -2457,8 +2498,17 @@ function updateTimerDisplay() {
 
 function timerComplete() {
   stopTimer();
+  _cancelNotification();
   document.getElementById('timerOverlay').classList.remove('active');
   if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+  // ページ非表示中はブラウザ通知も表示
+  if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+    new Notification('⏱️ インターバル終了！', {
+      body: `${timerState.exName} — 次のセットへ 💪`,
+      icon: './icon-192.png',
+      tag: 'interval-timer'
+    });
+  }
   showToast('⏱️ インターバル終了！次のセットへ');
 }
 
@@ -2470,6 +2520,7 @@ function stopTimer() {
 
 function skipTimer() {
   stopTimer();
+  _cancelNotification();
   document.getElementById('timerOverlay').classList.remove('active');
 }
 
