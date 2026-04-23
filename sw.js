@@ -1,8 +1,11 @@
-const CACHE_NAME = '101training-v8';
+const CACHE_NAME = '101training-v9';
 const ASSETS = [
   './',
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
+  './apple-touch-icon.png'
 ];
 
 // インストール：キャッシュを作成してすぐ有効化
