@@ -2236,6 +2236,7 @@ function renderGuide() {
               <div class="guide-tag-row">${phaseHTML}${muscleHTML}</div>
               <div class="guide-desc">${d.desc}</div>
               ${tipsHTML ? `<ul class="guide-tips">${tipsHTML}</ul>` : ''}
+              ${isYamaSpecial(name) ? `<button class="btn btn-sm" style="margin-top:10px;background:#ff6b6b22;border:1px solid #ff6b6b55;color:#ff6b6b;width:100%;" onclick="startYamaSpecial('${name}','${d.part}')">⚡ 山本スペシャルをセッションに追加</button>` : ''}
             </div>
           </div>
         </div>`;
@@ -2762,6 +2763,29 @@ function renderRecord() {
   const exCardsHTML = activeSession.exercises.map((ex, exIdx) => {
     const prev     = getPrevWeight(ex.name, ex.bilateral);
     const setsHTML = ex.sets.map((set, si) => renderSetRow(exIdx, si, set, ex.bilateral)).join('');
+
+    // Phase × 1RM 推奨重量ヒント
+    let phaseHintHTML = '';
+    const intensity = activeSession.intensity;
+    if (intensity && !ex.bilateral) {
+      const prs = getPRs();
+      const pr  = prs[ex.name];
+      if (pr) {
+        const rm1 = Math.round(pr.weight / (1.0278 - 0.0278 * pr.reps));
+        const t   = INTENSITY_TYPES[intensity];
+        const rec = Math.round(rm1 * t.pct / 2.5) * 2.5;
+        phaseHintHTML = `<div style="font-size:11px;color:${t.color};background:${t.color}12;border:1px solid ${t.color}30;border-radius:6px;padding:4px 8px;margin-bottom:6px;">
+          📊 ${t.label} 推奨: <b>${rec}kg</b>（推定1RM ${rm1}kg × ${Math.round(t.pct*100)}%） ／ 目標 ${t.repRange}
+        </div>`;
+      }
+    }
+    // 山本スペシャルバナー
+    const yamaHTML = ex.yamaSpecial
+      ? `<div style="font-size:11px;background:#ff6b6b15;border:1px solid #ff6b6b40;border-radius:6px;padding:4px 8px;margin-bottom:6px;color:#ff8888;">
+          ⚡ 山本スペシャル: ①87% ②30% ③60% ④30% の順で実施
+         </div>`
+      : '';
+
     return `
       <div class="exercise-card" id="exCard_${exIdx}">
         <div class="ex-card-header">
@@ -2774,6 +2798,8 @@ function renderRecord() {
           </div>
           <button class="btn-icon btn" onclick="removeExercise(${exIdx})" title="削除">✕</button>
         </div>
+        ${yamaHTML}
+        ${phaseHintHTML}
         ${prev ? `<div class="prev-weight">${prev}</div>` : ''}
         <div id="setsContainer_${exIdx}">${setsHTML}</div>
         <button class="add-set-btn" onclick="addSet(${exIdx})">＋ セット追加</button>
@@ -2859,10 +2885,13 @@ function renderSetRow(exIdx, si, set, bilateral) {
   }
   const rpActive = !!set.restPause;
   const rpPanel  = rpActive ? renderRPPanel(exIdx, si, set) : '';
+  // 山本スペシャルのステップラベル
+  const stepLabel = set.note ? `<span style="font-size:10px;color:#ff6b6b;font-weight:800;min-width:18px;">${set.note}</span>` : '';
   return `
     <div class="set-row-wrap" id="setWrap_${exIdx}_${si}" style="margin-bottom:8px;">
       <div class="set-row ${rowClass}" id="setRow_${exIdx}_${si}" style="margin-bottom:0;">
-        <div class="set-num">Set${si+1}</div>
+        <div class="set-num">${set.note ? '' : `Set${si+1}`}</div>
+        ${stepLabel}
         <input type="number" class="weight-input"
           id="w_${exIdx}_${si}"
           value="${set.weight || ''}" placeholder="kg" min="0" step="0.5"
@@ -2917,6 +2946,58 @@ function updateSetField(exIdx, si, field, val) {
 // ============================================================
 //  REST-PAUSE (山本義徳メソッド Phase 2)
 // ============================================================
+// ============================================================
+//  山本スペシャル（4ステップドロップセット）
+// ============================================================
+function isYamaSpecial(name) {
+  return name.includes('山本SP') || name.includes('山本スペシャル');
+}
+
+function startYamaSpecial(name, part) {
+  if (!activeSession) {
+    showToast('先にワークアウトを開始してください');
+    return;
+  }
+  // 推定1RM（同種目 or ベンチ/デッドを代用）
+  const prs  = getPRs();
+  const pr   = prs[name] || prs['ダンベルプレス'] || prs['ベンチプレス'];
+  const rm1  = pr ? Math.round(pr.weight / (1.0278 - 0.0278 * pr.reps)) : null;
+  const w = (pct) => rm1 ? Math.round(rm1 * pct / 2.5) * 2.5 : '';
+
+  // 4ステップのセットを生成
+  const steps = [
+    { pct: 0.87, reps: 6,  label: '①' },  // 85〜90% × 4〜8rep（限界）
+    { pct: 0.30, reps: 20, label: '②' },  // 30% × 20rep
+    { pct: 0.60, reps: 7,  label: '③' },  // 60% × 5〜8rep（限界）
+    { pct: 0.30, reps: 20, label: '④' },  // 30% × 20rep
+  ];
+  const sets = steps.map(s => ({
+    id:     Math.random().toString(36).slice(2),
+    weight: w(s.pct),
+    reps:   s.reps,
+    done:   false,
+    note:   s.label   // ステップ番号をメモ
+  }));
+
+  // 既存セッションに種目を追加
+  const ex = {
+    id:        Math.random().toString(36).slice(2),
+    name:      name,
+    part:      part,
+    recReps:   6,
+    intensity: 'heavy',
+    bilateral: false,
+    yamaSpecial: true,
+    sets
+  };
+  activeSession.exercises.push(ex);
+  saveActiveSession(activeSession);
+
+  showToast(`⚡ ${name} を追加しました`);
+  switchTab('record');
+  renderRecord();
+}
+
 function toggleRestPause(exIdx, si) {
   if (!activeSession) return;
   const set = activeSession.exercises[exIdx].sets[si];
