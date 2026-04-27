@@ -1067,10 +1067,11 @@
 <!-- 強度選択モーダル -->
 <div class="intensity-modal" id="intensityModal">
   <div class="intensity-sheet">
-    <div class="intensity-title">今日の強度を選択</div>
-    <div class="intensity-subtitle">山本義徳式 — 日によって重量・rep数を変えて刺激を変化させましょう</div>
+    <div class="intensity-title">マンデルブロ・トレーニング</div>
+    <div class="intensity-subtitle">山本義徳メソッド — Phase 1 → 2 → 3 をローテーションして筋肉に常に新しい刺激を与えます</div>
+    <div id="phaseRecBanner"></div>
     <div class="intensity-cards" id="intensityCards"></div>
-    <button class="btn btn-primary" style="width:100%;" onclick="confirmIntensity()">この強度で開始 ⚡</button>
+    <button class="btn btn-primary" style="width:100%;" onclick="confirmIntensity()">この Phase で開始 ⚡</button>
     <button class="btn" style="width:100%;margin-top:8px;background:#252525;" onclick="closeIntensityModal()">キャンセル</button>
   </div>
 </div>
@@ -1326,40 +1327,76 @@ const SPLIT_PATTERNS = {
 
 // 強度設定
 const INTENSITY_TYPES = {
-  light: {
-    label:       '低重量日',
-    emoji:       '🔵',
-    desc:        '筋持久・回復',
-    repRange:    '15〜20rep',
-    recReps:     18,
-    pct:         0.65,
-    color:       '#4fc3f7',
-    intervalSec: 90,   // 60〜90秒
-    intervalLabel: '90秒'
-  },
   medium: {
-    label:       '中重量日',
+    label:       'Phase 1（中重量）',
+    shortLabel:  'P1',
     emoji:       '🟡',
-    desc:        '筋肥大メイン',
-    repRange:    '10〜12rep',
+    desc:        '8〜10rep・標準セット',
+    note:        'マンデルブロ Phase 1 — ハイボリュームで筋肥大ベース作り',
+    repRange:    '8〜10rep',
     recReps:     10,
     pct:         0.80,
     color:       '#e8ff00',
-    intervalSec: 180,  // 2〜3分
-    intervalLabel: '3分'
+    intervalSec: 180,
+    intervalLabel: '3分',
+    phaseNum:    1
   },
   heavy: {
-    label:       '高重量日',
+    label:       'Phase 2（高重量）',
+    shortLabel:  'P2',
     emoji:       '🔴',
-    desc:        '筋力・神経系',
-    repRange:    '6〜8rep',
-    recReps:     6,
-    pct:         0.90,
+    desc:        '90〜95% レストポーズ',
+    note:        'マンデルブロ Phase 2 — 神経系刺激＆ストレングス',
+    repRange:    '4〜6rep',
+    recReps:     5,
+    pct:         0.92,
     color:       '#ff6b6b',
-    intervalSec: 300,  // 3〜5分
-    intervalLabel: '5分'
+    intervalSec: 300,
+    intervalLabel: '5分',
+    phaseNum:    2
+  },
+  light: {
+    label:       'Phase 3（低重量）',
+    shortLabel:  'P3',
+    emoji:       '🔵',
+    desc:        '20〜30rep・ハイレップ',
+    note:        'マンデルブロ Phase 3 — 代謝刺激＆毛細血管',
+    repRange:    '20〜30rep',
+    recReps:     22,
+    pct:         0.55,
+    color:       '#4fc3f7',
+    intervalSec: 90,
+    intervalLabel: '90秒',
+    phaseNum:    3
   }
 };
+
+// Phase ローテーション順（1 → 2 → 3 → 1...）
+const PHASE_ROTATION = ['medium', 'heavy', 'light'];
+
+// 部位別の最後のPhaseを取得して、次に推奨するPhaseを返す
+function getRecommendedPhase(parts) {
+  if (!parts || parts.length === 0) return null;
+  const history = getHistory();
+  // 直近で対象部位を含むセッションを探す
+  const recent = history
+    .slice()
+    .reverse()
+    .find(s => {
+      const sessionParts = (s.exercises || []).map(e => e.part);
+      return parts.some(p => sessionParts.includes(p)) && s.intensity;
+    });
+  if (!recent) return { key: 'medium', reason: '初回 — Phase 1からスタート' };
+  const lastIdx = PHASE_ROTATION.indexOf(recent.intensity);
+  if (lastIdx === -1) return { key: 'medium', reason: 'Phase 1から再開' };
+  const nextIdx = (lastIdx + 1) % PHASE_ROTATION.length;
+  const nextKey = PHASE_ROTATION[nextIdx];
+  const lastT   = INTENSITY_TYPES[recent.intensity];
+  return {
+    key:    nextKey,
+    reason: `前回 ${lastT.shortLabel}（${recent.date}） → 次は ${INTENSITY_TYPES[nextKey].shortLabel}`
+  };
+}
 
 const MAX_SETS_PER_PART      = 6;
 const REC_SETS_PER_EXERCISE  = 2;
@@ -2477,6 +2514,7 @@ function toggleDayCard(i) {
 
 function loadMenuDay(split, dayIdx) {
   pendingMenuDay = { split, dayIdx };
+  selectedIntensity = null; // 推奨Phaseを毎回再計算
   openIntensityModal();
 }
 
@@ -2496,34 +2534,61 @@ function startULSession(dayIdx) {
 }
 
 function openIntensityModal() {
-  // PRから各種目の目安重量を計算して表示
   const prs = getPRs();
 
-  // 代表種目（ベンチプレスなど）の目安重量を表示
-  const repKinds = Object.entries(INTENSITY_TYPES).map(([key, t]) => {
-    // PRがあれば重量目安を計算（PR重量をざっくり1RMと仮定）
-    const prEx  = prs['ベンチプレス'] || prs['スクワット'] || prs['デッドリフト'];
+  // 今日対象の部位を取得して推奨Phaseを計算
+  let targetParts = [];
+  if (pendingMenuDay) {
+    const { split, dayIdx } = pendingMenuDay;
+    targetParts = SPLIT_PATTERNS[split][dayIdx].parts;
+  }
+  const rec = getRecommendedPhase(targetParts);
+
+  // 推奨バナー
+  let bannerHTML = '';
+  if (rec) {
+    const recT = INTENSITY_TYPES[rec.key];
+    bannerHTML = `
+      <div style="background:${recT.color}15;border:1px solid ${recT.color}55;border-radius:12px;padding:10px 14px;margin-bottom:12px;">
+        <div style="font-size:11px;color:#aaa;font-weight:600;letter-spacing:0.05em;">💡 推奨ローテーション</div>
+        <div style="font-size:14px;color:${recT.color};font-weight:700;margin-top:2px;">${recT.label}</div>
+        <div style="font-size:11px;color:#888;margin-top:2px;">${rec.reason}</div>
+      </div>`;
+    // 初回オープン時のみ推奨を自動選択
+    if (!selectedIntensity) selectedIntensity = rec.key;
+  }
+
+  // カード一覧（推奨順 = ローテーション順）
+  const cardsHTML = PHASE_ROTATION.map(key => {
+    const t = INTENSITY_TYPES[key];
+    const prEx  = prs['ベンチプレス'] || prs['スクワット'] || prs['デッドリフト'] || prs['ダンベルプレス'];
     const rm1   = prEx ? Math.round(prEx.weight / (1.0278 - 0.0278 * prEx.reps)) : null;
     const wEst  = rm1 ? Math.round(rm1 * t.pct / 2.5) * 2.5 : null;
-    const wNote = wEst ? `<div class="ic-weights">目安: 約${wEst}kg（1RM推定${rm1}kgの${Math.round(t.pct*100)}%）</div>` : '';
+    const wNote = wEst ? `<div class="ic-weights">目安: 約${wEst}kg（推定1RM ${rm1}kg × ${Math.round(t.pct*100)}%）</div>` : '';
     const intervalNote = `<div class="ic-weights" style="color:${t.color};opacity:0.8;">⏱ インターバル: ${t.intervalLabel}推奨</div>`;
     const isSelected = key === selectedIntensity;
+    const isRec      = rec && rec.key === key;
+    const recBadge   = isRec
+      ? `<span style="background:${t.color};color:#0f0f0f;font-size:10px;font-weight:800;padding:2px 7px;border-radius:100px;margin-left:6px;vertical-align:2px;">推奨</span>`
+      : '';
     return `
       <div class="intensity-card ${isSelected ? 'selected' : ''}"
            style="border-color:${isSelected ? t.color : 'transparent'};"
            onclick="selectIntensity('${key}')">
         <div class="ic-emoji">${t.emoji}</div>
         <div class="ic-body">
-          <div class="ic-label" style="color:${t.color};">${t.label}</div>
+          <div class="ic-label" style="color:${t.color};">${t.label}${recBadge}</div>
           <div class="ic-desc">${t.desc}</div>
           <div class="ic-rep" style="color:${t.color};">${t.repRange}</div>
+          <div class="ic-weights" style="color:#999;font-style:italic;">${t.note}</div>
           ${wNote}
           ${intervalNote}
         </div>
       </div>`;
   }).join('');
 
-  document.getElementById('intensityCards').innerHTML = repKinds;
+  document.getElementById('phaseRecBanner').innerHTML = bannerHTML;
+  document.getElementById('intensityCards').innerHTML = cardsHTML;
   document.getElementById('intensityModal').classList.add('active');
 }
 
@@ -3479,6 +3544,19 @@ function renderAnalysis() {
       </div>
     </div>
     <div class="card">
+      <div class="card-title">🔄 マンデルブロ Phase ローテーション（部位別・直近6回）</div>
+      <div style="font-size:11px;color:#888;margin-bottom:10px;line-height:1.6;">
+        Phase 1（中重量）→ Phase 2（高重量）→ Phase 3（低重量）を順番に回すと刺激が偏らず筋肉が常に新しい刺激に晒されます。
+      </div>
+      <div id="phaseRotationGrid"></div>
+      <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:#888;flex-wrap:wrap;">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#e8ff00;border-radius:50%;vertical-align:middle;margin-right:4px;"></span>P1</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#ff6b6b;border-radius:50%;vertical-align:middle;margin-right:4px;"></span>P2</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#4fc3f7;border-radius:50%;vertical-align:middle;margin-right:4px;"></span>P3</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#333;border-radius:50%;vertical-align:middle;margin-right:4px;"></span>未記録</span>
+      </div>
+    </div>
+    <div class="card">
       <div class="card-title">今週のトレーニング頻度</div>
       <div class="freq-bar-wrap">${freqHTML}</div>
     </div>
@@ -3494,8 +3572,41 @@ function renderAnalysis() {
   requestAnimationFrame(() => {
     drawWeeklyChart(weekly);
     drawVolumeTrendChart(history);
+    renderPhaseRotation(history);
     renderCalendar();
   });
+}
+
+function renderPhaseRotation(history) {
+  const el = document.getElementById('phaseRotationGrid');
+  if (!el) return;
+  // 部位別に直近6回のセッションを抽出
+  const rows = Object.keys(BODY_PARTS).map(part => {
+    const sessions = history
+      .filter(s => (s.exercises||[]).some(e => e.part === part))
+      .slice(-6); // 直近6回
+    const dots = [];
+    for (let i = 0; i < 6; i++) {
+      const s = sessions[i];
+      if (!s || !s.intensity) {
+        dots.push(`<div title="未記録" style="width:22px;height:22px;border-radius:50%;background:#262626;border:1px solid #333;"></div>`);
+      } else {
+        const t = INTENSITY_TYPES[s.intensity];
+        const tip = `${formatDateJP(s.date)} — ${t.label}`;
+        dots.push(`<div title="${tip}" style="width:22px;height:22px;border-radius:50%;background:${t.color};box-shadow:0 0 6px ${t.color}66;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#0f0f0f;">${t.shortLabel}</div>`);
+      }
+    }
+    // 次の推奨Phase
+    const rec = getRecommendedPhase([part]);
+    const recBadge = rec ? `<span style="font-size:10px;color:${INTENSITY_TYPES[rec.key].color};font-weight:700;">→ 次は ${INTENSITY_TYPES[rec.key].shortLabel}</span>` : '';
+    return `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #222;">
+        <div style="width:48px;font-size:12px;color:#aaa;font-weight:600;">${BODY_PARTS[part].label}</div>
+        <div style="display:flex;gap:4px;flex:1;">${dots.join('')}</div>
+        <div style="min-width:62px;text-align:right;">${recBadge}</div>
+      </div>`;
+  });
+  el.innerHTML = rows.join('');
 }
 
 function drawWeeklyChart(counts) {
