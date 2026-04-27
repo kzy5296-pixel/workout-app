@@ -927,6 +927,28 @@
       opacity: 1;
       transform: translateX(-50%) translateY(0);
     }
+    .pr-toast {
+      position: fixed;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: linear-gradient(135deg, #b8950a, #e8ff00);
+      color: #0f0f0f;
+      padding: 12px 24px;
+      border-radius: 100px;
+      font-size: 15px;
+      font-weight: 800;
+      opacity: 0;
+      transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 3100;
+      pointer-events: none;
+      box-shadow: 0 4px 20px rgba(232,255,0,0.4);
+      white-space: nowrap;
+    }
+    .pr-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
 
     /* ===== EMPTY STATE ===== */
     .empty-state {
@@ -1119,6 +1141,8 @@
 
 <!-- ====== TOAST ====== -->
 <div class="toast" id="toast"></div>
+<!-- ====== PR TOAST ====== -->
+<div class="pr-toast" id="pr-toast"></div>
 
 <script>
 // ============================================================
@@ -2737,6 +2761,19 @@ function toggleSetDone(exIdx, si) {
   if (set.done) {
     row.classList.add('completed');
     btn.classList.add('done');
+
+    // リアルタイムPR検知
+    const ex = activeSession.exercises[exIdx];
+    const prs = getPRs();
+    const w = ex.bilateral ? parseFloat(set.weightL) : parseFloat(set.weight);
+    const r = ex.bilateral ? parseInt(set.repsL)    : parseInt(set.reps);
+    if (w && r) {
+      const vol = w * r;
+      if (!prs[ex.name] || vol > prs[ex.name].volume) {
+        showPRToast(ex.name, w, r);
+      }
+    }
+
     startTimer(activeSession.exercises[exIdx].name);
   } else {
     row.classList.remove('completed');
@@ -3436,6 +3473,12 @@ function renderAnalysis() {
       </div>
     </div>
     <div class="card">
+      <div class="card-title">📈 週次ボリューム推移（過去8週）</div>
+      <div class="chart-wrap">
+        <canvas id="volumeTrendChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
       <div class="card-title">今週のトレーニング頻度</div>
       <div class="freq-bar-wrap">${freqHTML}</div>
     </div>
@@ -3450,6 +3493,7 @@ function renderAnalysis() {
 
   requestAnimationFrame(() => {
     drawWeeklyChart(weekly);
+    drawVolumeTrendChart(history);
     renderCalendar();
   });
 }
@@ -3532,6 +3576,77 @@ function drawWeeklyChart(counts) {
   });
 }
 
+function drawVolumeTrendChart(history) {
+  const canvas = document.getElementById('volumeTrendChart');
+  if (!canvas) return;
+
+  // 過去8週分のデータを作成
+  const weeks = [];
+  for (let i = 7; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - d.getDay() - i * 7);
+    const start = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const endD  = new Date(d); endD.setDate(endD.getDate() + 6);
+    const end   = `${endD.getFullYear()}-${String(endD.getMonth()+1).padStart(2,'0')}-${String(endD.getDate()).padStart(2,'0')}`;
+    const label = `${d.getMonth()+1}/${d.getDate()}`;
+    const vol   = history.filter(s => s.date >= start && s.date <= end)
+                         .reduce((sum, s) => sum + calcSessionVolume(s), 0);
+    weeks.push({ label, vol });
+  }
+
+  const W = canvas.parentElement.clientWidth;
+  const H = 180;
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const padL = 48, padR = 12, padT = 16, padB = 36;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const maxVol = Math.max(...weeks.map(w => w.vol), 1000);
+  const n = weeks.length;
+  const spacing = chartW / n;
+  const barW    = spacing * 0.52;
+
+  // grid
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth   = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + chartH * (1 - i / 4);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
+    const lbl = Math.round(maxVol * i / 4 / 100) * 100;
+    ctx.fillStyle  = '#555';
+    ctx.font       = '10px system-ui';
+    ctx.textAlign  = 'right';
+    ctx.fillText(lbl >= 1000 ? `${(lbl/1000).toFixed(1)}k` : lbl, padL - 4, y + 3);
+  }
+
+  // bars
+  weeks.forEach((w, i) => {
+    if (w.vol === 0) return;
+    const x    = padL + i * spacing + (spacing - barW) / 2;
+    const barH = (w.vol / maxVol) * chartH;
+    const y    = padT + chartH - barH;
+    const grad = ctx.createLinearGradient(0, y, 0, y + barH);
+    grad.addColorStop(0, '#e8ff00cc');
+    grad.addColorStop(1, '#e8ff0044');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(x, y, barW, barH, [4, 4, 0, 0]);
+    ctx.fill();
+  });
+
+  // x labels
+  ctx.fillStyle = '#555';
+  ctx.font      = '10px system-ui';
+  ctx.textAlign = 'center';
+  weeks.forEach((w, i) => {
+    const x = padL + i * spacing + spacing / 2;
+    ctx.fillText(w.label, x, H - padB + 14);
+  });
+}
+
 // ============================================================
 //  TOAST
 // ============================================================
@@ -3543,6 +3658,15 @@ function showToast(msg) {
   el.classList.add('show');
   if (_toastTimer) clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+let _prToastTimer = null;
+function showPRToast(exName, weight, reps) {
+  const el = document.getElementById('pr-toast');
+  el.innerHTML = `🏆 NEW PR！ ${exName} ${weight}kg × ${reps}`;
+  el.classList.add('show');
+  if (_prToastTimer) clearTimeout(_prToastTimer);
+  _prToastTimer = setTimeout(() => el.classList.remove('show'), 3500);
 }
 
 // ============================================================
