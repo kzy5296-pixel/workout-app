@@ -89,13 +89,17 @@
     .guide-tab.active { background: #e8ff00; color: #000; border-color: #e8ff00; }
     .guide-card {
       background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 14px;
-      margin-bottom: 10px; overflow: hidden; cursor: pointer;
+      margin-bottom: 10px; overflow: hidden;
       transition: border-color 0.2s;
     }
-    .guide-card:active { border-color: #e8ff00; }
     .guide-card-header {
       display: flex; align-items: center; gap: 10px;
-      padding: 12px 14px;
+      padding: 12px 14px; cursor: pointer;
+    }
+    .guide-card-header:active { opacity: 0.8; }
+    .guide-chevron {
+      font-size: 14px; color: #666; flex-shrink: 0;
+      transition: transform 0.2s ease;
     }
     .guide-phase-dot {
       width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
@@ -2095,11 +2099,12 @@ function renderGuide() {
       const tipsHTML = (d.tips||[]).map(t => `<li>${t}</li>`).join('');
       const id = 'gc' + idx;   // ← インデックス番号ベースで必ずユニーク
       cardsHTML += `
-        <div class="guide-card" onclick="toggleGuideCard('${id}')">
-          <div class="guide-card-header">
+        <div class="guide-card">
+          <div class="guide-card-header" onclick="toggleGuideCard('${id}')">
             <div class="guide-phase-dot ${dotCls}"></div>
             <div class="guide-name">${name}</div>
             <div class="guide-rep">${recRep}</div>
+            <div class="guide-chevron" id="${id}-chev">▾</div>
           </div>
           <div class="guide-body" id="${id}">
             <div class="guide-body-inner">
@@ -2136,6 +2141,8 @@ function guideSearch(q) {
 function toggleGuideCard(id) {
   const el = document.getElementById(id);
   el.classList.toggle('open');
+  const chev = document.getElementById(id + '-chev');
+  if (chev) chev.style.transform = el.classList.contains('open') ? 'rotate(180deg)' : '';
 }
 
 function switchTab(tab) {
