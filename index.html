@@ -1206,7 +1206,7 @@
 <div class="pr-toast" id="pr-toast"></div>
 <!-- ====== MINI TIMER (rest-pause) ====== -->
 <div class="mini-timer" id="mini-timer">
-  <span>⚡レスト</span><span class="mini-timer-num" id="mini-timer-num">15</span>
+  <span>⚡ レスト休憩</span><span class="mini-timer-num" id="mini-timer-num">20</span><span style="font-size:11px;">秒</span>
 </div>
 
 <script>
@@ -2714,7 +2714,7 @@ function buildExercises(parts) {
       const rpDefault = selectedIntensity === 'heavy' && !bilateral;
       const makeSet = () => bilateral
         ? { id: Math.random().toString(36).slice(2), weightL: w, repsL: r, weightR: w, repsR: r, done: false }
-        : { id: Math.random().toString(36).slice(2), weight: w, reps: r, done: false, restPause: rpDefault, rpReps: rpDefault ? [String(r)] : undefined };
+        : { id: Math.random().toString(36).slice(2), weight: w, reps: r, done: false, restPause: rpDefault, rpReps: rpDefault ? ['','','',''] : undefined };
 
       list.push({
         id:        Math.random().toString(36).slice(2),
@@ -2912,23 +2912,26 @@ function renderSetRow(exIdx, si, set, bilateral) {
 }
 
 function renderRPPanel(exIdx, si, set) {
-  const reps = (set.rpReps && set.rpReps.length > 0) ? set.rpReps : [''];
+  const reps = (set.rpReps && set.rpReps.length > 0) ? set.rpReps : ['','','',''];
+  // ミニセットごとにプレースホルダーで漸減の目安を示す（4→3→2→1）
+  const hints = ['4','3','2','1'];
   const inputs = reps.map((r, mi) => `
     <span class="rp-mini-label">${mi+1}</span>
     <input type="number" class="rep-input rp-mini-input"
-      value="${r}" placeholder="rep" min="0"
+      value="${r}" placeholder="${hints[mi] || '1'}" min="0"
       onfocus="window._rpFocus={ex:${exIdx},si:${si},mi:${mi}}"
       onblur="commitRPRep(${exIdx},${si},${mi},this.value)">
   `).join('');
-  const total = reps.reduce((a,b) => a + (parseInt(b)||0), 0);
-  const w = parseFloat(set.weight) || 0;
+  const filled = reps.filter(r => r !== '' && parseInt(r) > 0);
+  const total  = filled.reduce((a,b) => a + (parseInt(b)||0), 0);
+  const w      = parseFloat(set.weight) || 0;
   const summary = total > 0
-    ? `合計 ${reps.filter(r=>r!=='').join('+')} = ${total}rep（ボリューム ${(w*total).toLocaleString()}kg）`
-    : '本セット失敗 → 15秒休憩 → 追い込み を繰り返し';
+    ? `${filled.join('+')} = 計${total}rep ／ ボリューム ${(w*total).toLocaleString()}kg`
+    : '同じ重量のまま → 限界まで → 15〜20秒休憩 → また限界まで（repsは自然に減ります）';
   return `
     <div class="rp-panel" id="rpPanel_${exIdx}_${si}">
       <div class="rp-panel-title">
-        <span>⚡ レストポーズ（15秒休憩 × ミニセット）</span>
+        <span>⚡ レストポーズ（80〜90%固定・reps逓減）</span>
         <button class="rp-add-mini" onclick="addRPMini(${exIdx},${si})" title="ミニセット追加">+</button>
       </div>
       <div class="rp-mini-row">${inputs}</div>
@@ -3003,8 +3006,8 @@ function toggleRestPause(exIdx, si) {
   const set = activeSession.exercises[exIdx].sets[si];
   set.restPause = !set.restPause;
   if (set.restPause && (!set.rpReps || set.rpReps.length === 0)) {
-    // 既にrepsが入っていればそれを最初のミニセットに
-    set.rpReps = set.reps ? [String(set.reps)] : [''];
+    // 4スロット空で初期化（repsは自然に減るので空欄スタート）
+    set.rpReps = ['','','',''];
   }
   saveActiveSession(activeSession);
   // 該当行を再描画
@@ -3035,7 +3038,7 @@ function commitRPRep(exIdx, si, mi, val) {
   if (rEl) rEl.value = set.reps;
   updateLiveStats();
   // 値が入っていたら15秒ミニタイマー起動
-  if (parseInt(val) > 0) startMiniTimer(15);
+  if (parseInt(val) > 0) startMiniTimer(20);
 }
 
 function addRPMini(exIdx, si) {
