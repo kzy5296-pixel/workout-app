@@ -1575,7 +1575,7 @@ function buildULExercises(dayIdx) {
       const pct = getCompoundPct(ex.compound, week);
       w = Math.round(big3[ex.compound] * pct / 2.5) * 2.5;
     } else if (prev) {
-      w = ex.bilateral ? (prev.weightL || '') : (prev.weight || '');
+      w = prev.weight || ''; // getPrevData は bilateral でも weight に左側重量を返す
     }
 
     const r   = ex.recReps;
@@ -1652,7 +1652,20 @@ function initDefaultPRs() {
 
 function getHistory()         { return load('t101_history', []); }
 function saveHistory(h)       { save('t101_history', h); }
-function getPRs()             { return load('t101_prs', {}); }
+function getPRs() {
+  const prs = load('t101_prs', {});
+  // volume フィールドが欠けている古いデータを正規化
+  let dirty = false;
+  Object.keys(prs).forEach(name => {
+    const pr = prs[name];
+    if (pr && pr.weight && pr.reps && !pr.volume) {
+      pr.volume = pr.weight * pr.reps;
+      dirty = true;
+    }
+  });
+  if (dirty) save('t101_prs', prs);
+  return prs;
+}
 function savePRs(p)           { save('t101_prs', p); }
 function getActiveSession()   { return load('t101_session', null); }
 function saveActiveSession(s) { save('t101_session', s); }
