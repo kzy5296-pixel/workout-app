@@ -2285,6 +2285,77 @@ function switchTab(tab) {
 }
 
 // ============================================================
+//  HOME TAB — helpers
+// ============================================================
+
+/**
+ * 全部位の「次のPhase」と「回復状態」を計算してHTMLを返す。
+ * 回復済み（2日以上）部位を先頭に、直近トレ部位を末尾に並べる。
+ */
+function buildTodayRecs(history) {
+  const today = todayStr();
+  const parts = Object.keys(BODY_PARTS);
+
+  const recs = parts.map(part => {
+    const rec = getRecommendedPhase([part]);
+    const lastSession = history.slice().reverse().find(s =>
+      (s.exercises || []).some(e => e.part === part)
+    );
+    const lastDate   = lastSession ? lastSession.date : null;
+    const daysSince  = lastDate
+      ? Math.floor((new Date(today) - new Date(lastDate)) / 86400000)
+      : 999;
+    const ready = daysSince >= 2;
+    const t = INTENSITY_TYPES[rec.key];
+    return { part, rec, t, lastDate, daysSince, ready };
+  });
+
+  // 回復済み→日数降順、未回復→日数降順
+  recs.sort((a, b) => {
+    if (a.ready !== b.ready) return a.ready ? -1 : 1;
+    return b.daysSince - a.daysSince;
+  });
+
+  return recs.map(({ part, rec, t, daysSince, ready }) => {
+    const pi = BODY_PARTS[part];
+    const dayLabel = daysSince === 999 ? '未記録' : daysSince === 0 ? '今日' : `${daysSince}日前`;
+    const statusBadge = ready
+      ? `<span style="background:#1a2a1a;color:#4caf50;font-size:10px;padding:2px 6px;border-radius:100px;white-space:nowrap;">✓ 回復済</span>`
+      : `<span style="background:#2a1a1a;color:#ff8a65;font-size:10px;padding:2px 6px;border-radius:100px;white-space:nowrap;">⏳ ${dayLabel}</span>`;
+    return `
+      <div style="display:flex;align-items:center;gap:7px;padding:8px 0;border-bottom:1px solid #1a1a1a;flex-wrap:nowrap;">
+        <span class="badge ${pi.badge}" style="font-size:11px;min-width:36px;text-align:center;flex-shrink:0;">${pi.label}</span>
+        <span style="background:${t.color}22;color:${t.color};font-size:11px;font-weight:800;padding:2px 8px;border-radius:100px;flex-shrink:0;">${t.shortLabel}</span>
+        <span style="font-size:11px;color:#888;flex:1;min-width:0;">${t.repRange}</span>
+        ${statusBadge}
+        <button class="btn btn-primary btn-sm"
+          style="font-size:11px;padding:4px 10px;flex-shrink:0;${!ready ? 'opacity:0.55;' : ''}"
+          onclick="quickStartByPart('${part}','${rec.key}')">▶ 開始</button>
+      </div>`;
+  }).join('');
+}
+
+/**
+ * ホームの「おすすめ」カードから即開始。
+ * selectedIntensity をセットして buildExercises を呼ぶ。
+ */
+function quickStartByPart(part, intensityKey) {
+  selectedIntensity = intensityKey;
+  const t  = INTENSITY_TYPES[intensityKey];
+  const pi = BODY_PARTS[part];
+  activeSession = {
+    id:        Date.now().toString(),
+    name:      `${t.emoji} ${pi.label} — ${t.shortLabel}`,
+    date:      todayStr(),
+    startTime: Date.now(),
+    intensity: intensityKey,
+    exercises: buildExercises([part])
+  };
+  saveActiveSession(activeSession);
+  switchTab('record');
+}
+
+// ============================================================
 //  HOME TAB
 // ============================================================
 
@@ -2368,6 +2439,9 @@ function renderHome() {
     .reduce((sum, s) => sum + calcSessionVolume(s), 0);
   const weekDays = [...new Set(history.filter(s => isThisWeek(s.date)).map(s => s.date))].length;
 
+  // ===== 今日のおすすめカード =====
+  const todayRecs = buildTodayRecs(history);
+
   el.innerHTML = `
     <div class="hero-section">
       <svg class="hero-dumbbell" viewBox="0 0 120 48" fill="none" stroke="#e8ff00" stroke-width="3" stroke-linecap="round">
@@ -2396,8 +2470,15 @@ function renderHome() {
     </div>
     ${activeWarnHTML}
     ${phaseHTML}
-    <button class="btn btn-primary btn-glow" style="margin-bottom:16px;font-size:18px;padding:18px 20px;" onclick="switchTab('menu')">
-      ⚡ 今日のトレーニング開始
+
+    <div class="card" style="margin-bottom:16px;padding:16px 14px;">
+      <div class="card-title" style="margin-bottom:4px;">🎯 今日のおすすめ</div>
+      <div style="font-size:11px;color:#555;margin-bottom:12px;">前回のPhaseから自動算出 — タップですぐ開始</div>
+      ${todayRecs}
+    </div>
+
+    <button class="btn btn-secondary" style="margin-bottom:16px;" onclick="switchTab('menu')">
+      📋 メニューから選んで開始
     </button>
     <div class="card">
       <div class="card-title">今週のセット数</div>
@@ -2849,38 +2930,55 @@ function renderSetRow(exIdx, si, set, bilateral) {
   const doneClass = set.done ? 'done' : '';
   const rowClass  = set.done ? 'completed' : '';
   if (bilateral) {
+    const wL = parseFloat(set.weightL)||0, wR = parseFloat(set.weightR)||0;
+    let lrDiffHTML = '';
+    if (wL > 0 && wR > 0) {
+      const diff = Math.abs(wL - wR);
+      const pct  = Math.round(diff / Math.max(wL,wR) * 100);
+      if (pct === 0) {
+        lrDiffHTML = `<div id="lrDiff_${exIdx}_${si}" style="font-size:10px;color:#4caf50;padding:2px 8px 4px 44px;">⇔ 左右均等</div>`;
+      } else {
+        const weaker = wL < wR ? 'L' : 'R';
+        lrDiffHTML = `<div id="lrDiff_${exIdx}_${si}" style="font-size:10px;color:#ff8a65;padding:2px 8px 4px 44px;">⚠ ${weaker}弱 ${pct}%差 — 次回は${weaker}側から開始</div>`;
+      }
+    } else {
+      lrDiffHTML = `<div id="lrDiff_${exIdx}_${si}" style="height:0;overflow:hidden;"></div>`;
+    }
     return `
-      <div class="set-row ${rowClass}" id="setRow_${exIdx}_${si}" style="align-items:flex-start;padding:10px 8px;">
-        <div class="set-num" style="margin-top:6px;">Set${si+1}</div>
-        <div style="flex:1;display:flex;flex-direction:column;gap:5px;">
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font-size:12px;color:#e8ff00;font-weight:800;min-width:16px;">L</span>
-            <input type="number" class="weight-input"
-              id="wL_${exIdx}_${si}"
-              value="${set.weightL || ''}" placeholder="kg" min="0" step="0.5"
-              oninput="updateSetField(${exIdx},${si},'weightL',this.value)">
-            <span class="x-sep">×</span>
-            <input type="number" class="rep-input"
-              id="rL_${exIdx}_${si}"
-              value="${set.repsL || ''}" placeholder="rep" min="0"
-              oninput="updateSetField(${exIdx},${si},'repsL',this.value)">
+      <div class="set-row-wrap" id="setWrap_${exIdx}_${si}" style="margin-bottom:8px;">
+        <div class="set-row ${rowClass}" id="setRow_${exIdx}_${si}" style="align-items:flex-start;padding:10px 8px;margin-bottom:0;">
+          <div class="set-num" style="margin-top:6px;">Set${si+1}</div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:5px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:12px;color:#e8ff00;font-weight:800;min-width:16px;">L</span>
+              <input type="number" class="weight-input"
+                id="wL_${exIdx}_${si}"
+                value="${set.weightL || ''}" placeholder="kg" min="0" step="0.5"
+                oninput="updateSetField(${exIdx},${si},'weightL',this.value)">
+              <span class="x-sep">×</span>
+              <input type="number" class="rep-input"
+                id="rL_${exIdx}_${si}"
+                value="${set.repsL || ''}" placeholder="rep" min="0"
+                oninput="updateSetField(${exIdx},${si},'repsL',this.value)">
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:12px;color:#4fc3f7;font-weight:800;min-width:16px;">R</span>
+              <input type="number" class="weight-input"
+                id="wR_${exIdx}_${si}"
+                value="${set.weightR || ''}" placeholder="kg" min="0" step="0.5"
+                oninput="updateSetField(${exIdx},${si},'weightR',this.value)">
+              <span class="x-sep">×</span>
+              <input type="number" class="rep-input"
+                id="rR_${exIdx}_${si}"
+                value="${set.repsR || ''}" placeholder="rep" min="0"
+                oninput="updateSetField(${exIdx},${si},'repsR',this.value)">
+            </div>
           </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font-size:12px;color:#4fc3f7;font-weight:800;min-width:16px;">R</span>
-            <input type="number" class="weight-input"
-              id="wR_${exIdx}_${si}"
-              value="${set.weightR || ''}" placeholder="kg" min="0" step="0.5"
-              oninput="updateSetField(${exIdx},${si},'weightR',this.value)">
-            <span class="x-sep">×</span>
-            <input type="number" class="rep-input"
-              id="rR_${exIdx}_${si}"
-              value="${set.repsR || ''}" placeholder="rep" min="0"
-              oninput="updateSetField(${exIdx},${si},'repsR',this.value)">
-          </div>
+          <button class="set-done-btn ${doneClass}" id="doneBtn_${exIdx}_${si}"
+            style="margin-top:4px;"
+            onclick="toggleSetDone(${exIdx},${si})">✓</button>
         </div>
-        <button class="set-done-btn ${doneClass}" id="doneBtn_${exIdx}_${si}"
-          style="margin-top:4px;"
-          onclick="toggleSetDone(${exIdx},${si})">✓</button>
+        ${lrDiffHTML}
       </div>`;
   }
   const rpActive = !!set.restPause;
@@ -2944,6 +3042,31 @@ function updateSetField(exIdx, si, field, val) {
   activeSession.exercises[exIdx].sets[si][field] = val;
   saveActiveSession(activeSession);
   updateLiveStats();
+  // 左右差リアルタイム表示
+  if (field === 'weightL' || field === 'weightR') {
+    const ex  = activeSession.exercises[exIdx];
+    if (ex && ex.bilateral) {
+      const s   = ex.sets[si];
+      const wL  = parseFloat(s.weightL) || 0;
+      const wR  = parseFloat(s.weightR) || 0;
+      const el  = document.getElementById(`lrDiff_${exIdx}_${si}`);
+      if (!el) return;
+      if (wL > 0 && wR > 0) {
+        const diff = Math.abs(wL - wR);
+        const pct  = Math.round(diff / Math.max(wL, wR) * 100);
+        if (pct === 0) {
+          el.style.color = '#4caf50';
+          el.textContent = '⇔ 左右均等';
+        } else {
+          const weaker = wL < wR ? 'L' : 'R';
+          el.style.color = '#ff8a65';
+          el.textContent = `⚠ ${weaker}弱 ${pct}%差 — 次回は${weaker}側から開始`;
+        }
+      } else {
+        el.textContent = '';
+      }
+    }
+  }
 }
 
 // ============================================================
