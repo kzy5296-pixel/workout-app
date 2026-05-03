@@ -410,12 +410,12 @@
 
     .history-item {
       padding: 12px 0;
-      border-bottom: 1px solid #2a2a2a;
+      border-bottom: 1px solid #222;
     }
-    .history-item:last-child { border-bottom: none; }
-    .history-item .hist-date { font-size: 13px; color: #888; }
-    .history-item .hist-title { font-size: 16px; font-weight: 600; margin: 2px 0; }
-    .history-item .hist-meta { font-size: 13px; color: #aaa; }
+    .history-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .history-item .hist-date { font-size: 12px; color: #666; }
+    .history-item .hist-title { font-size: 15px; font-weight: 600; margin: 2px 0; color: #fff; }
+    .history-item .hist-meta { font-size: 12px; color: #555; margin-top: 2px; }
 
     /* ===== MENU TAB ===== */
     .split-selector {
@@ -2316,21 +2316,21 @@ function buildTodayRecs(history) {
     return b.daysSince - a.daysSince;
   });
 
-  return recs.map(({ part, rec, t, daysSince, ready }) => {
+  return recs.map(({ part, rec, t, daysSince, ready }, i) => {
     const pi = BODY_PARTS[part];
+    const isLast = i === recs.length - 1;
     const dayLabel = daysSince === 999 ? '未記録' : daysSince === 0 ? '今日' : `${daysSince}日前`;
     const statusBadge = ready
-      ? `<span style="background:#1a2a1a;color:#4caf50;font-size:10px;padding:2px 6px;border-radius:100px;white-space:nowrap;">✓ 回復済</span>`
-      : `<span style="background:#2a1a1a;color:#ff8a65;font-size:10px;padding:2px 6px;border-radius:100px;white-space:nowrap;">⏳ ${dayLabel}</span>`;
+      ? `<span style="background:#1a2a1a;color:#4caf50;font-size:11px;font-weight:600;padding:3px 8px;border-radius:100px;white-space:nowrap;flex-shrink:0;">✓ 回復</span>`
+      : `<span style="background:#2a1a1a;color:#888;font-size:11px;font-weight:600;padding:3px 8px;border-radius:100px;white-space:nowrap;flex-shrink:0;">${dayLabel}</span>`;
     return `
-      <div style="display:flex;align-items:center;gap:7px;padding:8px 0;border-bottom:1px solid #1a1a1a;flex-wrap:nowrap;">
-        <span class="badge ${pi.badge}" style="font-size:11px;min-width:36px;text-align:center;flex-shrink:0;">${pi.label}</span>
-        <span style="background:${t.color}22;color:${t.color};font-size:11px;font-weight:800;padding:2px 8px;border-radius:100px;flex-shrink:0;">${t.shortLabel}</span>
-        <span style="font-size:11px;color:#888;flex:1;min-width:0;">${t.repRange}</span>
+      <div style="display:flex;align-items:center;gap:10px;min-height:48px;${isLast ? '' : 'border-bottom:1px solid #222;'}">
+        <span class="badge ${pi.badge}" style="min-width:40px;text-align:center;flex-shrink:0;">${pi.label}</span>
+        <span style="font-size:13px;font-weight:700;color:${t.color};flex-shrink:0;">${t.shortLabel}</span>
+        <span style="font-size:13px;color:#666;flex:1;min-width:0;">${t.repRange}</span>
         ${statusBadge}
-        <button class="btn btn-primary btn-sm"
-          style="font-size:11px;padding:4px 10px;flex-shrink:0;${!ready ? 'opacity:0.55;' : ''}"
-          onclick="quickStartByPart('${part}','${rec.key}')">▶ 開始</button>
+        <button style="background:${ready ? '#e8ff00' : '#2a2a2a'};color:${ready ? '#0f0f0f' : '#666'};border:none;border-radius:8px;font-size:13px;font-weight:700;padding:7px 14px;cursor:pointer;flex-shrink:0;font-family:inherit;-webkit-tap-highlight-color:transparent;"
+          onclick="quickStartByPart('${part}','${rec.key}')">▶</button>
       </div>`;
   }).join('');
 }
@@ -2391,12 +2391,12 @@ function renderHome() {
       const partList  = [...new Set((s.exercises||[]).map(e => BODY_PARTS[e.part]?.label).filter(Boolean))].join('・');
       recentHTML += `
         <div class="history-item">
-          <div class="hist-date">${formatDateJP(s.date)}</div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0;">
-            <span class="hist-title" style="margin:0;">${s.name || 'ワークアウト'}</span>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+            <div class="hist-date" style="margin:0;">${formatDateJP(s.date)}</div>
             ${intensityBadge(s.intensity)}
           </div>
-          <div class="hist-meta">${partList} ／ 総ボリューム ${vol.toLocaleString()}kg</div>
+          <div class="hist-title">${s.name || 'ワークアウト'}</div>
+          <div class="hist-meta">${partList} · ${vol.toLocaleString()}kg</div>
         </div>`;
     });
   }
@@ -2405,10 +2405,10 @@ function renderHome() {
   let activeWarnHTML = '';
   if (saved) {
     activeWarnHTML = `
-      <div class="card" style="border:1.5px solid #e8ff00;margin-bottom:12px;">
-        <div style="font-size:14px;color:#e8ff00;font-weight:700;margin-bottom:8px;">⚡ 進行中のワークアウト</div>
-        <div style="font-size:15px;margin-bottom:12px;">${saved.name || 'ワークアウト'}</div>
-        <button class="btn btn-primary btn-sm" onclick="resumeSession()">再開する</button>
+      <div class="card" style="border:1.5px solid #e8ff00;">
+        <div style="font-size:13px;color:#e8ff00;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">⚡ 進行中のワークアウト</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:12px;">${saved.name || 'ワークアウト'}</div>
+        <button class="btn btn-primary btn-sm" style="width:100%;" onclick="resumeSession()">再開する</button>
       </div>`;
   }
 
@@ -2416,13 +2416,13 @@ function renderHome() {
   const week  = getProgWeek();
   const phase = getProgPhase(week);
   const phaseHTML = phase ? `
-    <div class="card" style="border-left:3px solid ${phase.color};margin-bottom:12px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+    <div class="card" style="border-left:3px solid ${phase.color};">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
         <span style="font-size:15px;">${phase.icon}</span>
-        <span style="color:${phase.color};font-weight:700;font-size:14px;">${phase.label}</span>
+        <span style="color:${phase.color};font-weight:700;font-size:15px;">${phase.label}</span>
         <span style="background:${phase.color}22;color:${phase.color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:100px;">Week ${week} / 9</span>
       </div>
-      <div style="font-size:12px;color:#888;">${phase.desc}</div>
+      <div style="font-size:13px;color:#888;">${phase.desc}</div>
     </div>` : '';
 
   // プロフィール・おすすめバナー
@@ -2471,15 +2471,15 @@ function renderHome() {
     ${activeWarnHTML}
     ${phaseHTML}
 
-    <div class="card" style="margin-bottom:16px;padding:16px 14px;">
-      <div class="card-title" style="margin-bottom:4px;">🎯 今日のおすすめ</div>
-      <div style="font-size:11px;color:#555;margin-bottom:12px;">前回のPhaseから自動算出 — タップですぐ開始</div>
+    <div class="card">
+      <div class="card-title">🎯 今日のおすすめ</div>
       ${todayRecs}
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #222;">
+        <button class="btn btn-outline btn-sm" style="width:100%;color:#666;border-color:#2a2a2a;" onclick="switchTab('menu')">
+          📋 メニューから自由に選ぶ
+        </button>
+      </div>
     </div>
-
-    <button class="btn btn-secondary" style="margin-bottom:16px;" onclick="switchTab('menu')">
-      📋 メニューから選んで開始
-    </button>
     <div class="card">
       <div class="card-title">今週のセット数</div>
       <div class="weekly-grid">${weeklyHTML}</div>
@@ -2489,7 +2489,7 @@ function renderHome() {
       <div class="card-title">最近のワークアウト</div>
       ${recentHTML}
     </div>
-    <button class="btn btn-outline" style="width:100%;color:#666;border-color:#2a2a2a;margin-bottom:8px;" onclick="openSettingsModal()">
+    <button class="btn btn-outline btn-sm" style="width:100%;color:#555;border-color:#252525;font-size:13px;" onclick="openSettingsModal()">
       ⚙️ 設定 / データのバックアップ
     </button>`;
 }
