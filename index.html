@@ -1442,13 +1442,17 @@ const PHASE_ROTATION = ['medium', 'heavy', 'light'];
 function getRecommendedPhase(parts) {
   if (!parts || parts.length === 0) return null;
   const history = getHistory();
-  // 直近で対象部位を含むセッションを探す
+  // 対象部位で1セットでも完了(done=true)しているセッションを探す
   const recent = history
     .slice()
     .reverse()
     .find(s => {
-      const sessionParts = (s.exercises || []).map(e => e.part);
-      return parts.some(p => sessionParts.includes(p)) && s.intensity;
+      if (!s.intensity) return false;
+      return parts.some(p =>
+        (s.exercises || []).some(e =>
+          e.part === p && (e.sets || []).some(set => set.done)
+        )
+      );
     });
   if (!recent) return { key: 'medium', reason: '初回 — Phase 1からスタート' };
   const lastIdx = PHASE_ROTATION.indexOf(recent.intensity);
@@ -2298,8 +2302,11 @@ function buildTodayRecs(history) {
 
   const recs = parts.map(part => {
     const rec = getRecommendedPhase([part]);
+    // 実際に1セット以上 done したセッションだけカウント
     const lastSession = history.slice().reverse().find(s =>
-      (s.exercises || []).some(e => e.part === part)
+      (s.exercises || []).some(e =>
+        e.part === part && (e.sets || []).some(set => set.done)
+      )
     );
     const lastDate   = lastSession ? lastSession.date : null;
     const daysSince  = lastDate
