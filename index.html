@@ -1361,6 +1361,11 @@ const SPLIT_PATTERNS = {
     { label: 'A', parts: ['chest', 'back', 'biceps', 'triceps'] },
     { label: 'B', parts: ['legs', 'shoulders'] }
   ],
+  // 2分割③: 胸背中 / 肩腕脚
+  '2c': [
+    { label: 'A', parts: ['chest', 'back'] },
+    { label: 'B', parts: ['shoulders', 'biceps', 'triceps', 'legs'] }
+  ],
   // 3分割: 山本式（胸二頭 / 背中肩三頭 / 脚）
   3: [
     { label: 'A', parts: ['chest', 'biceps'] },
@@ -2642,6 +2647,7 @@ function renderMenu() {
         <button class="split-btn ${isUL?'active':''}" onclick="setSplit('ul')" style="${isUL?'':''}">UL分割</button>
         <button class="split-btn ${selectedSplit===2?'active':''}" onclick="setSplit(2)">2分割①</button>
         <button class="split-btn ${selectedSplit==='2b'?'active':''}" onclick="setSplit('2b')">2分割②</button>
+        <button class="split-btn ${selectedSplit==='2c'?'active':''}" onclick="setSplit('2c')">2分割③</button>
         <button class="split-btn ${selectedSplit===3?'active':''}" onclick="setSplit(3)">3分割①</button>
         <button class="split-btn ${selectedSplit==='3b'?'active':''}" onclick="setSplit('3b')">3分割②</button>
         <button class="split-btn ${selectedSplit===4?'active':''}" onclick="setSplit(4)">4分割</button>
@@ -3690,12 +3696,14 @@ function pauseTimer() {
   timerState.paused = !timerState.paused;
   if (timerState.paused) {
     timerState.pausedAt = Date.now();
+    _cancelNotification(); // 一時停止中はSW通知をキャンセル
   } else {
     // 再開: 停止していた時間分だけ endTime を延長
     if (timerState.pausedAt) {
       timerState.endTime += Date.now() - timerState.pausedAt;
       timerState.pausedAt = null;
     }
+    _scheduleNotification(timerState.exName, timerState.endTime); // 新しいendTimeで再予約
   }
   document.getElementById('timerPauseBtn').textContent = timerState.paused ? '再開' : '一時停止';
 }
@@ -3705,6 +3713,8 @@ function setTimerDuration(secs) {
   timerState.remaining = secs;
   timerState.endTime   = Date.now() + secs * 1000;
   timerState.pausedAt  = null;
+  _cancelNotification();
+  _scheduleNotification(timerState.exName, timerState.endTime); // 変更後の時間で再予約
   updateTimerDisplay();
   updateTimerButtons();
 }
