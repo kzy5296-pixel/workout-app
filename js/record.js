@@ -135,18 +135,6 @@ function renderSetRow(exIdx, si, set, bilateral) {
           <div class="set-num" style="margin-top:6px;">Set${si+1}</div>
           <div style="flex:1;display:flex;flex-direction:column;gap:5px;">
             <div style="display:flex;align-items:center;gap:6px;">
-              <span style="font-size:12px;color:#e8ff00;font-weight:800;min-width:16px;">L</span>
-              <input type="number" class="weight-input"
-                id="wL_${exIdx}_${si}"
-                value="${set.weightL || ''}" placeholder="kg" min="0" step="0.5"
-                oninput="updateSetField(${exIdx},${si},'weightL',this.value)">
-              <span class="x-sep">×</span>
-              <input type="number" class="rep-input"
-                id="rL_${exIdx}_${si}"
-                value="${set.repsL || ''}" placeholder="rep" min="0"
-                oninput="updateSetField(${exIdx},${si},'repsL',this.value)">
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;">
               <span style="font-size:12px;color:#4fc3f7;font-weight:800;min-width:16px;">R</span>
               <input type="number" class="weight-input"
                 id="wR_${exIdx}_${si}"
@@ -157,6 +145,18 @@ function renderSetRow(exIdx, si, set, bilateral) {
                 id="rR_${exIdx}_${si}"
                 value="${set.repsR || ''}" placeholder="rep" min="0"
                 oninput="updateSetField(${exIdx},${si},'repsR',this.value)">
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:12px;color:#e8ff00;font-weight:800;min-width:16px;">L</span>
+              <input type="number" class="weight-input"
+                id="wL_${exIdx}_${si}"
+                value="${set.weightL || ''}" placeholder="kg" min="0" step="0.5"
+                oninput="updateSetField(${exIdx},${si},'weightL',this.value)">
+              <span class="x-sep">×</span>
+              <input type="number" class="rep-input"
+                id="rL_${exIdx}_${si}"
+                value="${set.repsL || ''}" placeholder="rep" min="0"
+                oninput="updateSetField(${exIdx},${si},'repsL',this.value)">
             </div>
           </div>
           <button class="set-done-btn ${doneClass}" id="doneBtn_${exIdx}_${si}"
