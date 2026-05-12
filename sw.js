@@ -1,4 +1,4 @@
-const CACHE_NAME = '101training-v17';
+const CACHE_NAME = '101training-v18';
 const ASSETS = [
   './',
   './index.html',
@@ -42,18 +42,22 @@ self.addEventListener('message', event => {
   if (d.type === 'SCHEDULE_TIMER') {
     if (_timerTimeout) { clearTimeout(_timerTimeout); _timerTimeout = null; }
     const delay = Math.max(0, d.endTime - Date.now());
-    _timerTimeout = setTimeout(() => {
-      _timerTimeout = null;
-      self.registration.showNotification('⏱️ インターバル終了！', {
-        body: `${d.exName} — 次のセットへ 💪`,
-        icon:    './icon-192.png',
-        badge:   './icon-192.png',
-        vibrate: [200, 100, 200, 100, 400],
-        tag:     'interval-timer',
-        renotify: true,
-        data:    { url: self.registration.scope }
-      });
-    }, delay);
+    // event.waitUntil() で SW を生かし続ける（iOS Safari 対策）
+    // Promise が resolve されるまでブラウザは SW を終了しない
+    event.waitUntil(new Promise(resolve => {
+      _timerTimeout = setTimeout(() => {
+        _timerTimeout = null;
+        self.registration.showNotification('⏱️ インターバル終了！', {
+          body: `${d.exName} — 次のセットへ 💪`,
+          icon:    './icon-192.png',
+          badge:   './icon-192.png',
+          vibrate: [200, 100, 200, 100, 400],
+          tag:     'interval-timer',
+          renotify: true,
+          data:    { url: self.registration.scope }
+        }).then(resolve, resolve);
+      }, delay);
+    }));
   }
 
   if (d.type === 'CANCEL_TIMER') {

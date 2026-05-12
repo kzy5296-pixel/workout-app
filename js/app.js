@@ -638,7 +638,19 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && timerState.active && !timerState.paused) {
     timerState.remaining = Math.max(0, Math.round((timerState.endTime - Date.now()) / 1000));
     updateTimerDisplay();
-    if (timerState.remaining <= 0) timerComplete();
+    if (timerState.remaining <= 0) {
+      // バックグラウンド中に SW 通知が出なかった場合の保険：
+      // 復帰時に期限切れだったら、バイブと SW 通知を即発火
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('⏱️ インターバル終了！', {
+          body: `${timerState.exName} — 次のセットへ 💪`,
+          icon: './icon-192.png',
+          tag: 'interval-timer'
+        });
+      }
+      timerComplete();
+    }
   }
 });
 
