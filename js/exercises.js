@@ -18,19 +18,20 @@ const EXERCISES = {
     { name: 'ペックデックフライ',                   rec: 25, t: ['l'] },
   ],
   back: [
-    { name: 'トップサイドデッドリフト(重)',          rec: 5,  t: ['h'] },
+    { name: 'トップサイドデッドリフト(重)',          rec: 6,  t: ['h'] },
     { name: 'ネガティブオンリーチンニング',          rec: 6,  t: ['h'] },
+    { name: 'ワンハンドダンベルロウイング',          rec: 6,  t: ['h'], bilateral: true },
     { name: 'ネガティブオンリースターナムチンニング', rec: 6,  t: ['h'] },
     { name: 'ネガティブオンリー肩甲下筋チンニング',  rec: 6,  t: ['h'] },
     { name: 'ワンハンドロウイング(ネガ)',            rec: 6,  t: ['h'], bilateral: true },
     { name: 'サポーティッドワンハンドシュラッグ',   rec: 6,  t: ['h'], bilateral: true },
-    { name: 'トップサイドデッドリフト',             rec: 7,  t: ['m'] },
+    { name: 'トップサイドデッドリフト',             rec: 8,  t: ['m'] },
     { name: 'オーバーグリップチンニング',            rec: 10, t: ['m'] },
+    { name: 'ベンチサポーティッドダンベルロウ',      rec: 10, t: ['m'], bilateral: true },
+    { name: 'プーリーロウ',                         rec: 10, t: ['m'] },
     { name: 'スターナムチンニング(SSC)',             rec: 10, t: ['m'] },
     { name: '肩甲下筋チンニング',                   rec: 7,  t: ['m'] },
-    { name: 'ベンチサポーティッドダンベルロウ',      rec: 10, t: ['m'], bilateral: true },
     { name: 'ラウンドダンベルロウ',                 rec: 10, t: ['m'], bilateral: true },
-    { name: 'プーリーロウ',                         rec: 10, t: ['m'] },
     { name: 'オーバーグリッププルダウン',            rec: 25, t: ['l'] },
     { name: 'プーリーロウ(軽)',                     rec: 25, t: ['l'] },
     { name: 'プローンインクラインスミスシュラッグ',  rec: 25, t: ['l'] },
@@ -313,10 +314,14 @@ function _filterByRpe(exList) {
   return filtered.length >= REC_EX_PER_PART_MIN ? filtered : exList;
 }
 
+function _defaultExerciseCount(part) {
+  return part === 'back' ? REC_EX_PER_PART_MAX : REC_EX_PER_PART_MIN;
+}
+
 function menuExercises(parts) {
   const list = [];
   parts.forEach(part => {
-    _filterByRpe(EXERCISES[part]).slice(0, REC_EX_PER_PART_MIN).forEach(ex => {
+    _filterByRpe(EXERCISES[part]).slice(0, _defaultExerciseCount(part)).forEach(ex => {
       list.push({ name: ex.name, part, rec: ex.rec, bilateral: !!ex.bilateral });
     });
   });
@@ -329,9 +334,9 @@ function buildExercises(parts) {
   const numSets   = selectedIntensity === 'light' ? 3 : 2;
 
   parts.forEach(part => {
-    _filterByRpe(EXERCISES[part]).slice(0, REC_EX_PER_PART_MIN).forEach(ex => {
+    _filterByRpe(EXERCISES[part]).slice(0, _defaultExerciseCount(part)).forEach(ex => {
       const prev      = getPrevData(ex.name, ex.bilateral);
-      const r         = intensity.recReps;
+      const r         = ex.rec || intensity.recReps;
       const bilateral = !!ex.bilateral;
 
       let w = '';
@@ -594,6 +599,12 @@ const EXERCISE_TIPS = {
     muscle:['広背筋','大円筋','菱形筋'],
     desc:'反動を使って持ち上げ、ゆっくりとネガティブを意識して下ろす高強度ロウ。5〜6rep。',
     tips:['上げる時は反動を利用してOK','下ろす時は4〜5秒かける','腰をひねって代償しない']
+  },
+  'ワンハンドダンベルロウイング': {
+    part:'back', phase:['h'],
+    muscle:['広背筋','大円筋','菱形筋'],
+    desc:'高重量では反動を使って挙げ、ネガティブ局面を丁寧に下ろす。左右別に5〜6repを記録する。',
+    tips:['トップで肘を腰方向へ引く','下ろす局面をゆっくりコントロール','左右差が出るので弱い側から始める']
   },
 
   // ===== 上腕三頭筋 =====
