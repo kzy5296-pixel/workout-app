@@ -1,7 +1,13 @@
-const CACHE_NAME = '101training-v18';
+const CACHE_NAME = '101training-v19';
 const ASSETS = [
   './',
   './index.html',
+  './styles.css',
+  './js/state.js',
+  './js/exercises.js',
+  './js/record.js',
+  './js/analysis.js',
+  './js/app.js',
   './manifest.json',
   './icon-192-v2.png',
   './icon-512-v2.png',
@@ -49,8 +55,8 @@ self.addEventListener('message', event => {
         _timerTimeout = null;
         self.registration.showNotification('⏱️ インターバル終了！', {
           body: `${d.exName} — 次のセットへ 💪`,
-          icon:    './icon-192.png',
-          badge:   './icon-192.png',
+          icon:    './icon-192-v2.png',
+          badge:   './icon-192-v2.png',
           vibrate: [200, 100, 200, 100, 400],
           tag:     'interval-timer',
           renotify: true,

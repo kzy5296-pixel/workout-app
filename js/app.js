@@ -453,6 +453,70 @@ function confirmIntensity() {
 //  TIMER
 // ============================================================
 
+let _timerAudioCtx = null;
+let _wakeLock = null;
+
+function _unlockTimerAudio() {
+  const AudioCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtor) return;
+
+  try {
+    if (!_timerAudioCtx) _timerAudioCtx = new AudioCtor();
+    if (_timerAudioCtx.state === 'suspended') _timerAudioCtx.resume();
+
+    const osc = _timerAudioCtx.createOscillator();
+    const gain = _timerAudioCtx.createGain();
+    gain.gain.value = 0.0001;
+    osc.connect(gain);
+    gain.connect(_timerAudioCtx.destination);
+    osc.start();
+    osc.stop(_timerAudioCtx.currentTime + 0.03);
+  } catch(e) {}
+}
+
+function _playTimerAlarm() {
+  const AudioCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtor) return;
+
+  try {
+    if (!_timerAudioCtx) _timerAudioCtx = new AudioCtor();
+    if (_timerAudioCtx.state === 'suspended') _timerAudioCtx.resume();
+
+    const now = _timerAudioCtx.currentTime;
+    [0, 0.34, 0.68, 1.12, 1.46].forEach((offset, i) => {
+      const osc = _timerAudioCtx.createOscillator();
+      const gain = _timerAudioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = i % 2 === 0 ? 880 : 660;
+      gain.gain.setValueAtTime(0.0001, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.18, now + offset + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.22);
+      osc.connect(gain);
+      gain.connect(_timerAudioCtx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.24);
+    });
+  } catch(e) {}
+}
+
+function _requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  if (_wakeLock || document.hidden) return;
+
+  navigator.wakeLock.request('screen')
+    .then(lock => {
+      _wakeLock = lock;
+      _wakeLock.addEventListener('release', () => { _wakeLock = null; });
+    })
+    .catch(() => {});
+}
+
+function _releaseWakeLock() {
+  if (!_wakeLock) return;
+  _wakeLock.release().catch(() => {});
+  _wakeLock = null;
+}
+
 function _scheduleNotification(exName, endTime) {
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.ready.then(reg => {
@@ -469,6 +533,7 @@ function _cancelNotification() {
 
 function startTimer(exName) {
   stopTimer();
+  _unlockTimerAudio();
 
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
@@ -487,6 +552,7 @@ function startTimer(exName) {
   timerState.pausedAt  = null;
 
   _scheduleNotification(exName, timerState.endTime);
+  _requestWakeLock();
   updateTimerButtons();
 
   document.getElementById('timerExName').textContent = exName;
@@ -515,14 +581,17 @@ function updateTimerDisplay() {
 }
 
 function timerComplete() {
+  const exName = timerState.exName;
   stopTimer();
   _cancelNotification();
+  _releaseWakeLock();
   document.getElementById('timerOverlay').classList.remove('active');
+  _playTimerAlarm();
   if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
-  if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+  if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('⏱️ インターバル終了！', {
-      body: `${timerState.exName} — 次のセットへ 💪`,
-      icon: './icon-192.png',
+      body: `${exName} — 次のセットへ 💪`,
+      icon: './icon-192-v2.png',
       tag: 'interval-timer'
     });
   }
@@ -533,6 +602,7 @@ function stopTimer() {
   if (timerState.interval) { clearInterval(timerState.interval); timerState.interval = null; }
   timerState.active = false;
   timerState.paused = false;
+  _releaseWakeLock();
 }
 
 function skipTimer() {
@@ -546,12 +616,14 @@ function pauseTimer() {
   if (timerState.paused) {
     timerState.pausedAt = Date.now();
     _cancelNotification();
+    _releaseWakeLock();
   } else {
     if (timerState.pausedAt) {
       timerState.endTime += Date.now() - timerState.pausedAt;
       timerState.pausedAt = null;
     }
     _scheduleNotification(timerState.exName, timerState.endTime);
+    _requestWakeLock();
   }
   document.getElementById('timerPauseBtn').textContent = timerState.paused ? '再開' : '一時停止';
 }
@@ -636,6 +708,10 @@ function showPRToast(exName, weight, reps) {
 
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && timerState.active && !timerState.paused) {
+    _requestWakeLock();
+  }
+
+  if (!document.hidden && timerState.active && !timerState.paused) {
     timerState.remaining = Math.max(0, Math.round((timerState.endTime - Date.now()) / 1000));
     updateTimerDisplay();
     if (timerState.remaining <= 0) {
@@ -645,7 +721,7 @@ document.addEventListener('visibilitychange', () => {
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('⏱️ インターバル終了！', {
           body: `${timerState.exName} — 次のセットへ 💪`,
-          icon: './icon-192.png',
+          icon: './icon-192-v2.png',
           tag: 'interval-timer'
         });
       }
