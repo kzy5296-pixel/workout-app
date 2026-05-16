@@ -78,14 +78,18 @@ const EXERCISES = {
     { name: 'サイドレイズ',                       rec: 20, t: ['l'],     bilateral: true },
   ],
   biceps: [
+    { name: 'ワンアームチンニング(ネガティブ片腕)', rec: 5,  t: ['h'], bilateral: true },
+    { name: 'ワンアームケーブルカール(一人ネガティブ)', rec: 6, t: ['h'], bilateral: true },
+    { name: 'インクラインカール',            rec: 10, t: ['m'] },
+    { name: 'インクラインハンマーカール',    rec: 8,  t: ['m'] },
+    { name: '3wayダンベルカール',           rec: 25, t: ['l'] },
+    { name: 'スミスマシンドラッグカール',    rec: 30, t: ['l'] },
+    { name: 'インクラインカール',            rec: 20, t: ['l'] },
     { name: 'ワンアームチンニング',         rec: 9,  t: ['h'], bilateral: true },
     { name: 'ワイドグリップバーベルカール',  rec: 10, t: ['h'] },
-    { name: 'インクラインハンマーカール',    rec: 10, t: ['m'] },
     { name: 'バーベルカール',               rec: 10, t: ['m'] },
     { name: 'ダンベルカール',               rec: 10, t: ['m'] },
-    { name: 'インクラインカール',            rec: 17, t: ['l'] },
     { name: 'ワンアームケーブルカール',      rec: 17, t: ['l'], bilateral: true },
-    { name: '3wayダンベルカール',           rec: 17, t: ['l'] },
     { name: 'コンセントレーションカール',    rec: 17, t: ['l'], bilateral: true },
   ],
   triceps: [
@@ -330,6 +334,7 @@ function _filterByRpe(exList) {
 
 function _defaultExerciseCount(part) {
   if (part === 'shoulders') return 4;
+  if (part === 'biceps' && selectedIntensity === 'light') return 3;
   return part === 'back' || part === 'chest' ? REC_EX_PER_PART_MAX : REC_EX_PER_PART_MIN;
 }
 
@@ -769,6 +774,18 @@ const EXERCISE_TIPS = {
   },
 
   // ===== 上腕二頭筋 =====
+  'ワンアームチンニング(ネガティブ片腕)': {
+    part:'biceps', phase:['h'],
+    muscle:['上腕二頭筋','広背筋'],
+    desc:'片腕ネガティブを重視する高重量Phase種目。補助を使ってトップへ上がり、片腕主体で4〜5回ゆっくり下ろす。',
+    tips:['トップまでは補助を使ってよい','下ろしは4〜5秒かける','肩がすくまない範囲で行う']
+  },
+  'ワンアームケーブルカール(一人ネガティブ)': {
+    part:'biceps', phase:['h'],
+    muscle:['上腕二頭筋'],
+    desc:'片腕ずつ行うケーブルカールのネガティブ強調種目。5〜6回を目安に、下ろしで二頭筋に負荷を残す。',
+    tips:['上げる時は反対の手で軽く補助してもよい','下ろしを丁寧にコントロール','肘の位置を固定する']
+  },
   'ワンアームチンニング': {
     part:'biceps', phase:['h'],
     muscle:['上腕二頭筋','広背筋'],
@@ -800,9 +817,9 @@ const EXERCISE_TIPS = {
     tips:['上げながら小指側を外に回す','最高点で1秒止める','左右均等に行う']
   },
   'インクラインカール': {
-    part:'biceps', phase:['l'],
+    part:'biceps', phase:['m','l'],
     muscle:['上腕二頭筋長頭'],
-    desc:'インクラインで肘を後方に引くことで長頭のストレッチを最大化する。15〜20repのハイレップ。',
+    desc:'インクラインで肘を後方に引くことで長頭のストレッチを最大化する。Phase1では8〜10回、Phase3では15〜20回を目安に行う。',
     tips:['肘をベンチより後ろに引いた状態をキープ','ゆっくり下ろして長頭を十分伸ばす','二頭筋はハイレップが効果的']
   },
   'ワンアームケーブルカール': {
@@ -814,8 +831,14 @@ const EXERCISE_TIPS = {
   '3wayダンベルカール': {
     part:'biceps', phase:['l'],
     muscle:['上腕二頭筋','上腕筋','腕橈骨筋'],
-    desc:'ハンマー→ノーマル→逆手の3グリップを連続して行うドロップセット的カール。15〜20rep。',
+    desc:'ハンマー→ノーマル→逆手の3グリップを連続して行うドロップセット的カール。トータル20〜25回を目安に行う。',
     tips:['3つのグリップを連続して行う','休憩なしで切り替える','疲労が大きいので軽めの重量で']
+  },
+  'スミスマシンドラッグカール': {
+    part:'biceps', phase:['l'],
+    muscle:['上腕二頭筋'],
+    desc:'スミスマシンでバーを体に沿わせるように引き上げるドラッグカール。25〜30回の高回数で二頭筋に血流を集める。',
+    tips:['肘を後ろに引きながらバーを上げる','肩をすくめず二頭筋で引く','軽めで張力を抜かない']
   },
   'コンセントレーションカール': {
     part:'biceps', phase:['l'],
