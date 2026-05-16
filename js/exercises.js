@@ -93,16 +93,17 @@ const EXERCISES = {
     { name: 'コンセントレーションカール',    rec: 17, t: ['l'], bilateral: true },
   ],
   triceps: [
-    { name: 'ネガティブディップス',               rec: 5,  t: ['h'] },
-    { name: 'デッドストップトライセプスプレス',   rec: 5,  t: ['h'] },
-    { name: 'インクラインプレスダウン(重)',        rec: 5,  t: ['h'] },
-    { name: 'ディップス',                        rec: 8,  t: ['m'] },
-    { name: 'プルオーバー＆エクステンション',     rec: 8,  t: ['m'] },
+    { name: 'ネガティブディップス',               rec: 5,  t: ['h'], sets: 2 },
+    { name: 'デッドストップ・トライセプスプレス', rec: 3,  t: ['h'], sets: 3 },
+    { name: 'インクラインプレスダウン(重)',        rec: 3,  t: ['h'], sets: 3 },
+    { name: 'ディップス',                        rec: 6,  t: ['m'], sets: 2 },
+    { name: 'プルオーバー＆エクステンション',     rec: 10, t: ['m'], sets: 2 },
+    { name: 'インクラインプレスダウン',           rec: 25, t: ['l'], sets: 3 },
+    { name: 'プルオーバー＆エクステンション(軽)', rec: 25, t: ['l'], sets: 2 },
+    { name: '自重ディップス',                    rec: 20, t: ['l'], sets: 2 },
+    { name: 'デッドストップトライセプスプレス',   rec: 3,  t: ['h'], sets: 3 },
     { name: 'ナローグリップベンチプレス',         rec: 10, t: ['m'] },
     { name: 'スカルクラッシャー',                rec: 10, t: ['m'] },
-    { name: 'インクラインプレスダウン',           rec: 22, t: ['l'] },
-    { name: 'プルオーバー＆エクステンション(軽)', rec: 22, t: ['l'] },
-    { name: '自重ディップス',                    rec: 20, t: ['l'] },
     { name: 'オーバーヘッドエクステンション',     rec: 20, t: ['l'] },
   ],
   core: [
@@ -335,6 +336,7 @@ function _filterByRpe(exList) {
 function _defaultExerciseCount(part) {
   if (part === 'shoulders') return 4;
   if (part === 'biceps' && selectedIntensity === 'light') return 3;
+  if (part === 'triceps' && selectedIntensity !== 'medium') return 3;
   return part === 'back' || part === 'chest' ? REC_EX_PER_PART_MAX : REC_EX_PER_PART_MIN;
 }
 
@@ -358,6 +360,7 @@ function buildExercises(parts) {
       const prev      = getPrevData(ex.name, ex.bilateral);
       const r         = ex.rec || intensity.recReps;
       const bilateral = !!ex.bilateral;
+      const numSetsForExercise = ex.sets || numSets;
 
       let w = '';
       if (prev) {
@@ -381,7 +384,7 @@ function buildExercises(parts) {
         recReps:   r,
         intensity: selectedIntensity,
         bilateral,
-        sets: Array.from({ length: numSets }, makeSet)
+        sets: Array.from({ length: numSetsForExercise }, makeSet)
       });
     });
   });
@@ -718,28 +721,34 @@ const EXERCISE_TIPS = {
     desc:'台を使ってトップから5〜6秒かけてゆっくり下ろすディップスのネガティブのみ。4〜5rep2セット。',
     tips:['体を垂直に保つと三頭筋主体になる','ゆっくり下ろすことが最重要','翌日の筋肉痛が強烈']
   },
+  'デッドストップ・トライセプスプレス': {
+    part:'triceps', phase:['h'],
+    muscle:['上腕三頭筋'],
+    desc:'バーを胸に置いて完全停止（デッドストップ）してから押し上げる。レストポーズ法（3回→2回→2回）で行う。',
+    tips:['バーを完全に止めてから押す（反動ゼロ）','肘が外に開かないよう注意','ナローグリップで行う']
+  },
   'デッドストップトライセプスプレス': {
     part:'triceps', phase:['h'],
     muscle:['上腕三頭筋'],
-    desc:'バーを胸に置いて完全停止（デッドストップ）してから押し上げる。レストポーズ法（3→2→2→1→1）で行う。',
+    desc:'旧名称。新しいデフォルトでは「デッドストップ・トライセプスプレス」として表示する。',
     tips:['バーを完全に止めてから押す（反動ゼロ）','肘が外に開かないよう注意','ナローグリップで行う']
   },
   'インクラインプレスダウン(重)': {
     part:'triceps', phase:['h'],
     muscle:['上腕三頭筋長頭'],
-    desc:'インクラインベンチを使ったプレスダウン。長頭を強調できる。レストポーズ（3→2→2→1→1）で行う。',
+    desc:'インクラインベンチを使ったプレスダウン。長頭を強調できる。レストポーズ（3回→2回→2回）で行う。',
     tips:['体をインクラインに沿わせて固定','肘を体側に固定したまま伸展','長頭が十分ストレッチされる姿勢を作る']
   },
   'ディップス': {
     part:'triceps', phase:['m'],
     muscle:['上腕三頭筋','大胸筋下部'],
-    desc:'自重または加重ディップス。体を垂直に保ち三頭筋を主体として使う。8rep目安。',
+    desc:'自重または加重ディップス。体を垂直に保ち三頭筋を主体として使う。5〜6回を2セット。',
     tips:['体を前傾させすぎると大胸筋主体になる','肘を体側に沿わせる','完全伸展でしっかり三頭筋を収縮']
   },
   'プルオーバー＆エクステンション': {
     part:'triceps', phase:['m','l'],
     muscle:['上腕三頭筋長頭','広背筋'],
-    desc:'プルオーバーからそのままエクステンションに移行する複合動作。長頭のストレッチが最大限に出る。',
+    desc:'プルオーバーからそのままエクステンションに移行する複合動作。Phase1では8〜10回を2セット、Phase3では20〜25回を2セット。',
     tips:['頭の後ろに下ろしてから肘を伸展','肩甲骨を固定したまま動作する','中重量8〜10rep / 低重量20〜25rep']
   },
   'ナローグリップベンチプレス': {
@@ -757,13 +766,13 @@ const EXERCISE_TIPS = {
   'インクラインプレスダウン': {
     part:'triceps', phase:['l'],
     muscle:['上腕三頭筋長頭'],
-    desc:'低重量で20〜25repの仕上げ種目。長頭を収縮・伸展させてポンプアップを狙う。',
+    desc:'低重量で20〜25回を3セット行う仕上げ種目。長頭を収縮・伸展させてポンプアップを狙う。',
     tips:['ケーブルのロープを使うと動作しやすい','肘を固定して前腕だけで動かす','ゆっくりとしたテンポで行う']
   },
   '自重ディップス': {
     part:'triceps', phase:['l'],
     muscle:['上腕三頭筋','大胸筋下部'],
-    desc:'加重なしの自重ディップスを限界まで行う。できるだけ多くの回数を目指す。',
+    desc:'加重なしの自重ディップスを限界まで行う。できるだけ多くの回数を2セット。',
     tips:['疲れてきたら体を前傾させて負荷を分散','最後の数回は部分可動域でもOK','呼吸を止めないよう注意']
   },
   'オーバーヘッドエクステンション': {
