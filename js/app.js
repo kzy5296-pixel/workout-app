@@ -783,18 +783,30 @@ function showUpdateBanner() {
   const banner = document.createElement('div');
   banner.id = 'updateBanner';
   banner.style.cssText = [
-    'position:fixed', 'top:0', 'left:0', 'right:0', 'z-index:9999',
-    'background:#e8ff00', 'color:#0f0f0f', 'text-align:center',
-    'padding:12px 16px', 'font-size:14px', 'font-weight:700',
-    'display:flex', 'align-items:center', 'justify-content:center', 'gap:12px'
+    'position:fixed', 'left:0', 'right:0', 'bottom:0',
+    'z-index:9999',
+    'background:#e8ff00', 'color:#0f0f0f',
+    'padding:16px 16px calc(16px + env(safe-area-inset-bottom)) 16px',
+    'box-shadow:0 -4px 16px rgba(0,0,0,0.25)',
+    'display:flex', 'flex-direction:column', 'align-items:stretch', 'gap:10px'
   ].join(';');
   banner.innerHTML = `
-    <span>🔄 アップデートあり！</span>
-    <button onclick="window.location.reload()" style="background:#0f0f0f;color:#e8ff00;border:none;border-radius:6px;padding:6px 14px;font-size:13px;font-weight:700;cursor:pointer;">
-      今すぐ更新
+    <div style="text-align:center;font-size:15px;font-weight:700;">
+      🔄 アップデートがあります
+    </div>
+    <button onclick="window.location.reload()"
+      style="background:#0f0f0f;color:#e8ff00;border:none;border-radius:12px;
+             padding:16px;font-size:17px;font-weight:800;cursor:pointer;
+             min-height:54px;width:100%;-webkit-tap-highlight-color:rgba(255,255,255,0.2);">
+      今すぐ更新する
+    </button>
+    <button onclick="document.getElementById('updateBanner')?.remove()"
+      style="background:transparent;color:#0f0f0f;border:none;
+             padding:8px;font-size:13px;font-weight:600;cursor:pointer;opacity:0.7;">
+      あとで
     </button>
   `;
-  document.body.prepend(banner);
+  document.body.appendChild(banner);
 }
 
 // ============================================================
