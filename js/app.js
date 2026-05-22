@@ -480,23 +480,34 @@ function _playTimerAlarm() {
 
   try {
     if (!_timerAudioCtx) _timerAudioCtx = new AudioCtor();
-    if (_timerAudioCtx.state === 'suspended') _timerAudioCtx.resume();
+  } catch(e) { return; }
 
-    const now = _timerAudioCtx.currentTime;
-    [0, 0.34, 0.68, 1.12, 1.46].forEach((offset, i) => {
-      const osc = _timerAudioCtx.createOscillator();
-      const gain = _timerAudioCtx.createGain();
-      osc.type = 'square';
-      osc.frequency.value = i % 2 === 0 ? 880 : 660;
-      gain.gain.setValueAtTime(0.0001, now + offset);
-      gain.gain.exponentialRampToValueAtTime(0.18, now + offset + 0.025);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.22);
-      osc.connect(gain);
-      gain.connect(_timerAudioCtx.destination);
-      osc.start(now + offset);
-      osc.stop(now + offset + 0.24);
-    });
-  } catch(e) {}
+  // resume の完了を待ってから音を鳴らす（iOS Safari 対策）
+  const ctx = _timerAudioCtx;
+  const doPlay = () => {
+    try {
+      const now = ctx.currentTime;
+      [0, 0.34, 0.68, 1.12, 1.46].forEach((offset, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = i % 2 === 0 ? 880 : 660;
+        gain.gain.setValueAtTime(0.0001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.25, now + offset + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.22);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.24);
+      });
+    } catch(e) {}
+  };
+
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(doPlay).catch(doPlay);
+  } else {
+    doPlay();
+  }
 }
 
 function _requestWakeLock() {
@@ -709,6 +720,10 @@ function showPRToast(exName, weight, reps) {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && timerState.active && !timerState.paused) {
     _requestWakeLock();
+    // AudioContext は画面OFFで suspend されることがあるので必ず resume
+    if (_timerAudioCtx && _timerAudioCtx.state === 'suspended') {
+      _timerAudioCtx.resume().catch(() => {});
+    }
   }
 
   if (!document.hidden && timerState.active && !timerState.paused) {
