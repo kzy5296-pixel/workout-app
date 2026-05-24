@@ -1,4 +1,4 @@
-const CACHE_NAME = '101training-v30';
+const CACHE_NAME = '101training-v31';
 const ASSETS = [
   './',
   './index.html',
