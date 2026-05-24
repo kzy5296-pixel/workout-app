@@ -83,6 +83,15 @@ function renderRecord() {
             ${t.emoji} ${t.label}（${t.repRange}）
           </div>`;
         })() : ''}
+        <button onclick="toggleGiantSetMode()"
+          style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;
+                 background:${activeSession.giantSetMode ? '#ff6b6b' : '#2a2a2a'};
+                 color:${activeSession.giantSetMode ? '#fff' : '#aaa'};
+                 border:1px solid ${activeSession.giantSetMode ? '#ff6b6b' : '#444'};
+                 border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;
+                 cursor:pointer;min-height:40px;">
+          🔥 ジャイアントセット ${activeSession.giantSetMode ? 'ON（種目間休憩なし）' : 'OFF'}
+        </button>
       </div>
     </div>
     <div class="volume-display">
@@ -369,6 +378,24 @@ function startMiniTimer(secs) {
 }
 
 // ============================================================
+//  GIANT SET MODE
+// ============================================================
+
+function toggleGiantSetMode() {
+  if (!activeSession) return;
+  activeSession.giantSetMode = !activeSession.giantSetMode;
+  saveActiveSession(activeSession);
+  // タイマー実行中なら停止
+  if (activeSession.giantSetMode && typeof skipTimer === 'function') {
+    skipTimer();
+  }
+  showToast(activeSession.giantSetMode
+    ? '🔥 ジャイアントセットON — 種目間タイマーOFF'
+    : '⏱️ 通常モード — 種目間タイマーON');
+  renderRecord();
+}
+
+// ============================================================
 //  SET ACTIONS
 // ============================================================
 
@@ -395,7 +422,10 @@ function toggleSetDone(exIdx, si) {
       }
     }
 
-    startTimer(activeSession.exercises[exIdx].name);
+    // ジャイアントセットモード時はインターバルタイマーをスキップ
+    if (!activeSession.giantSetMode) {
+      startTimer(activeSession.exercises[exIdx].name);
+    }
   } else {
     row.classList.remove('completed');
     btn.classList.remove('done');
