@@ -52,6 +52,13 @@ function renderRecord() {
          </div>`
       : '';
 
+    const showRestPause = ex.restPause || activeSession.intensity === 'heavy';
+    const restPauseHTML = showRestPause
+      ? `<div style="font-size:11px;background:#ffa72615;border:1px solid #ffa72640;border-radius:6px;padding:4px 8px;margin-bottom:6px;color:#ffb84d;">
+          🔥 レストポーズ: Max90〜95%で 3→2→2→1→1回（1セット）
+         </div>`
+      : '';
+
     return `
       <div class="exercise-card" id="exCard_${exIdx}">
         <div class="ex-card-header">
@@ -65,6 +72,7 @@ function renderRecord() {
           <button class="btn-icon btn" onclick="removeExercise(${exIdx})" title="削除">✕</button>
         </div>
         ${yamaHTML}
+        ${restPauseHTML}
         ${phaseHintHTML}
         ${prev ? `<div class="prev-weight">${prev}</div>` : ''}
         <div id="setsContainer_${exIdx}">${setsHTML}</div>
@@ -747,12 +755,17 @@ function addExToSession(name, part, rec, bilateral) {
   const makeSet = () => bilateral
     ? { id: Math.random().toString(36).slice(2), weightL: wAdd, repsL: rAdd, weightR: wAdd, repsR: rAdd, done: false }
     : { id: Math.random().toString(36).slice(2), weight: wAdd, reps: rAdd, done: false };
+  // 種目定義から強度を引く → 高重量(Phase2)はレストポーズ1セット
+  const def      = (typeof EXERCISES !== 'undefined' && EXERCISES[part] || []).find(e => e.name === name) || {};
+  const isHeavy  = Array.isArray(def.t) && def.t.includes('h');
+  const setCount = isHeavy ? 1 : (def.sets || 2);
   activeSession.exercises.push({
     id:      Math.random().toString(36).slice(2),
     name, part,
     recReps: rec,
     bilateral: !!bilateral,
-    sets: [ makeSet(), makeSet() ]
+    restPause: isHeavy,
+    sets: Array.from({ length: setCount }, () => makeSet())
   });
   saveActiveSession(activeSession);
   document.getElementById('addExModal').classList.remove('active');
