@@ -98,7 +98,7 @@ function renderRecord() {
                  border:1px solid ${activeSession.giantSetMode ? '#ff6b6b' : '#444'};
                  border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;
                  cursor:pointer;min-height:40px;">
-          🔥 ジャイアントセット ${activeSession.giantSetMode ? 'ON（種目間休憩なし）' : 'OFF'}
+          🔥 ジャイアントセット ${activeSession.giantSetMode ? 'ON（まとめ表示中）' : 'OFF'}
         </button>
       </div>
     </div>
@@ -116,7 +116,7 @@ function renderRecord() {
       </div>
     </div>
     ${warnHTML}
-    ${exCardsHTML}
+    ${activeSession.giantSetMode ? renderGiantSetView() : exCardsHTML}
     <button class="btn btn-secondary" style="margin-bottom:12px;" onclick="openAddExModal()">
       ＋ 種目を追加
     </button>
@@ -392,14 +392,119 @@ function startMiniTimer(secs) {
 function toggleGiantSetMode() {
   if (!activeSession) return;
   activeSession.giantSetMode = !activeSession.giantSetMode;
+  // ONにしたら全種目のセット数を最大に揃える（ラウンド表示をきれいに）
+  if (activeSession.giantSetMode) {
+    const exs = activeSession.exercises;
+    if (exs.length > 0) {
+      const maxRounds = Math.max(...exs.map(e => e.sets.length), 1);
+      exs.forEach(ex => {
+        while (ex.sets.length < maxRounds) ex.sets.push(newEmptySet(ex));
+      });
+    }
+  }
   saveActiveSession(activeSession);
   // タイマー実行中なら停止
   if (activeSession.giantSetMode && typeof skipTimer === 'function') {
     skipTimer();
   }
   showToast(activeSession.giantSetMode
-    ? '🔥 ジャイアントセットON — 種目間タイマーOFF'
-    : '⏱️ 通常モード — 種目間タイマーON');
+    ? '🔥 ジャイアントセットON — 全種目をまとめて表示'
+    : '⏱️ 通常モード — 種目ごとの表示に戻しました');
+  renderRecord();
+}
+
+// 種目の空セットを生成（bilateral対応）
+function newEmptySet(ex) {
+  return ex.bilateral
+    ? { id: Math.random().toString(36).slice(2), weightL: '', repsL: ex.recReps, weightR: '', repsR: ex.recReps, done: false }
+    : { id: Math.random().toString(36).slice(2), weight: '', reps: ex.recReps, done: false };
+}
+
+// ジャイアントセット表示：全種目を1つにまとめ、周（ラウンド）ごとに記録
+function renderGiantSetView() {
+  const exs = activeSession.exercises;
+  if (exs.length === 0) {
+    return `<div class="exercise-card" style="color:#888;text-align:center;font-size:14px;">
+      種目がありません。下の「＋ 種目を追加」から追加してください。
+    </div>`;
+  }
+  const maxRounds = Math.max(...exs.map(e => e.sets.length), 1);
+  let roundsHTML = '';
+  for (let r = 0; r < maxRounds; r++) {
+    const doneInRound = exs.filter(ex => ex.sets[r] && ex.sets[r].done).length;
+    const rowsHTML = exs.map((ex, exIdx) =>
+      ex.sets[r] ? renderGiantRow(exIdx, r, ex.sets[r], ex) : ''
+    ).join('');
+    roundsHTML += `
+      <div class="giant-round">
+        <div class="giant-round-title">
+          <span>${r + 1}周目</span>
+          <span class="giant-round-count">${doneInRound}/${exs.length}</span>
+        </div>
+        ${rowsHTML}
+      </div>`;
+  }
+  return `
+    <div class="giant-set-wrap">
+      <div class="giant-set-banner">🔥 ジャイアントセット — ${exs.length}種目を連続で。1周ごとに記録します</div>
+      ${roundsHTML}
+      <button class="add-set-btn" onclick="addRound()">＋ 周を追加（全${exs.length}種目に1セット）</button>
+    </div>`;
+}
+
+function renderGiantRow(exIdx, si, set, ex) {
+  const doneClass = set.done ? 'done' : '';
+  const rowClass  = set.done ? 'completed' : '';
+  if (ex.bilateral) {
+    return `
+      <div class="giant-ex-row ${rowClass}" id="setRow_${exIdx}_${si}">
+        <div class="giant-ex-name">${ex.name}</div>
+        <div class="giant-bilateral">
+          <div class="giant-lr">
+            <span style="color:#4fc3f7;font-weight:800;font-size:11px;min-width:14px;">R</span>
+            <input type="number" class="weight-input" id="wR_${exIdx}_${si}"
+              value="${set.weightR || ''}" placeholder="kg" min="0" step="0.5"
+              oninput="updateSetField(${exIdx},${si},'weightR',this.value)">
+            <span class="x-sep">×</span>
+            <input type="number" class="rep-input" id="rR_${exIdx}_${si}"
+              value="${set.repsR || ''}" placeholder="rep" min="0"
+              oninput="updateSetField(${exIdx},${si},'repsR',this.value)">
+          </div>
+          <div class="giant-lr">
+            <span style="color:#e8ff00;font-weight:800;font-size:11px;min-width:14px;">L</span>
+            <input type="number" class="weight-input" id="wL_${exIdx}_${si}"
+              value="${set.weightL || ''}" placeholder="kg" min="0" step="0.5"
+              oninput="updateSetField(${exIdx},${si},'weightL',this.value)">
+            <span class="x-sep">×</span>
+            <input type="number" class="rep-input" id="rL_${exIdx}_${si}"
+              value="${set.repsL || ''}" placeholder="rep" min="0"
+              oninput="updateSetField(${exIdx},${si},'repsL',this.value)">
+          </div>
+        </div>
+        <button class="set-done-btn ${doneClass}" id="doneBtn_${exIdx}_${si}"
+          onclick="toggleSetDone(${exIdx},${si})">✓</button>
+      </div>`;
+  }
+  return `
+    <div class="giant-ex-row ${rowClass}" id="setRow_${exIdx}_${si}">
+      <div class="giant-ex-name">${ex.name}</div>
+      <input type="number" class="weight-input" id="w_${exIdx}_${si}"
+        value="${set.weight || ''}" placeholder="kg" min="0" step="0.5"
+        oninput="updateSetField(${exIdx},${si},'weight',this.value)">
+      <span class="x-sep">×</span>
+      <input type="number" class="rep-input" id="r_${exIdx}_${si}"
+        value="${set.reps || ''}" placeholder="rep" min="0"
+        oninput="updateSetField(${exIdx},${si},'reps',this.value)">
+      <button class="set-done-btn ${doneClass}" id="doneBtn_${exIdx}_${si}"
+        onclick="toggleSetDone(${exIdx},${si})">✓</button>
+    </div>`;
+}
+
+// 全種目に1セット（＝1周）を追加
+function addRound() {
+  if (!activeSession) return;
+  activeSession.exercises.forEach(ex => ex.sets.push(newEmptySet(ex)));
+  saveActiveSession(activeSession);
   renderRecord();
 }
 
@@ -430,9 +535,11 @@ function toggleSetDone(exIdx, si) {
       }
     }
 
-    // ジャイアントセットモード時はインターバルタイマーをスキップ
+    // タイマー：通常は種目ごと、ジャイアントセット時は1周の最後の種目でだけ起動
     if (!activeSession.giantSetMode) {
       startTimer(activeSession.exercises[exIdx].name);
+    } else if (exIdx === activeSession.exercises.length - 1) {
+      startTimer(`ジャイアントセット ${si + 1}周目`);
     }
   } else {
     row.classList.remove('completed');
@@ -463,9 +570,7 @@ function addSet(exIdx) {
   if (!activeSession) return;
   const ex  = activeSession.exercises[exIdx];
   const si  = ex.sets.length;
-  const newSet = ex.bilateral
-    ? { id: Math.random().toString(36).slice(2), weightL: '', repsL: ex.recReps, weightR: '', repsR: ex.recReps, done: false }
-    : { id: Math.random().toString(36).slice(2), weight: '', reps: ex.recReps, done: false };
+  const newSet = newEmptySet(ex);
   ex.sets.push(newSet);
   saveActiveSession(activeSession);
   document.getElementById('setsContainer_' + exIdx)
