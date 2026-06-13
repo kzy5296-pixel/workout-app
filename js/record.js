@@ -126,6 +126,8 @@ function renderRecord() {
     <button class="btn btn-outline" style="margin-bottom:24px;color:#888;border-color:#333;" onclick="abandonSession()">
       中断する
     </button>`;
+
+  if (activeSession.giantSetMode) updateGiantHighlight();
 }
 
 function renderSetRow(exIdx, si, set, bilateral) {
@@ -458,10 +460,22 @@ function renderGiantSetView() {
 function renderGiantRow(exIdx, si, set, ex) {
   const doneClass = set.done ? 'done' : '';
   const rowClass  = set.done ? 'completed' : '';
+  const isFirst   = (si === 0);            // 1周目だけ並べ替え・前回値を出す
+  const total     = activeSession.exercises.length;
+  const prev      = isFirst ? getPrevWeight(ex.name, ex.bilateral) : null;
+  const reorder   = `<div class="giant-reorder">${isFirst ? `
+        <button class="giant-mv" ${exIdx === 0 ? 'disabled' : ''} onclick="moveExercise(${exIdx},-1)" title="上へ">▲</button>
+        <button class="giant-mv" ${exIdx === total - 1 ? 'disabled' : ''} onclick="moveExercise(${exIdx},1)" title="下へ">▼</button>` : ''}</div>`;
+  const nameWrap  = `<div class="giant-ex-namewrap">
+        <div class="giant-ex-name">${ex.name}</div>
+        ${prev ? `<div class="giant-prev">${prev}</div>` : ''}
+      </div>`;
+  const doneBtn   = `<button class="set-done-btn ${doneClass}" id="doneBtn_${exIdx}_${si}" onclick="toggleSetDone(${exIdx},${si})">✓</button>`;
   if (ex.bilateral) {
     return `
       <div class="giant-ex-row ${rowClass}" id="setRow_${exIdx}_${si}">
-        <div class="giant-ex-name">${ex.name}</div>
+        ${reorder}
+        ${nameWrap}
         <div class="giant-bilateral">
           <div class="giant-lr">
             <span style="color:#4fc3f7;font-weight:800;font-size:11px;min-width:14px;">R</span>
@@ -484,13 +498,13 @@ function renderGiantRow(exIdx, si, set, ex) {
               oninput="updateSetField(${exIdx},${si},'repsL',this.value)">
           </div>
         </div>
-        <button class="set-done-btn ${doneClass}" id="doneBtn_${exIdx}_${si}"
-          onclick="toggleSetDone(${exIdx},${si})">✓</button>
+        ${doneBtn}
       </div>`;
   }
   return `
     <div class="giant-ex-row ${rowClass}" id="setRow_${exIdx}_${si}">
-      <div class="giant-ex-name">${ex.name}</div>
+      ${reorder}
+      ${nameWrap}
       <input type="number" class="weight-input" id="w_${exIdx}_${si}"
         value="${set.weight || ''}" placeholder="kg" min="0" step="0.5"
         oninput="updateSetField(${exIdx},${si},'weight',this.value)">
@@ -498,9 +512,38 @@ function renderGiantRow(exIdx, si, set, ex) {
       <input type="number" class="rep-input" id="r_${exIdx}_${si}"
         value="${set.reps || ''}" placeholder="rep" min="0"
         oninput="updateSetField(${exIdx},${si},'reps',this.value)">
-      <button class="set-done-btn ${doneClass}" id="doneBtn_${exIdx}_${si}"
-        onclick="toggleSetDone(${exIdx},${si})">✓</button>
+      ${doneBtn}
     </div>`;
+}
+
+// 種目の並べ替え（ジャイアントの順番を変更）
+function moveExercise(exIdx, dir) {
+  if (!activeSession) return;
+  const arr = activeSession.exercises;
+  const j = exIdx + dir;
+  if (j < 0 || j >= arr.length) return;
+  const tmp = arr[exIdx]; arr[exIdx] = arr[j]; arr[j] = tmp;
+  saveActiveSession(activeSession);
+  renderRecord();
+}
+
+// 「次にやる種目」（最初の未完了セル）をハイライト
+function updateGiantHighlight() {
+  document.querySelectorAll('.giant-ex-row.giant-next').forEach(e => e.classList.remove('giant-next'));
+  if (!activeSession || !activeSession.giantSetMode) return;
+  const exs = activeSession.exercises;
+  if (exs.length === 0) return;
+  const maxRounds = Math.max(...exs.map(e => e.sets.length), 1);
+  for (let r = 0; r < maxRounds; r++) {
+    for (let i = 0; i < exs.length; i++) {
+      const s = exs[i].sets[r];
+      if (s && !s.done) {
+        const el = document.getElementById('setRow_' + i + '_' + r);
+        if (el) el.classList.add('giant-next');
+        return;
+      }
+    }
+  }
 }
 
 // 全種目に1セット（＝1周）を追加
@@ -551,6 +594,7 @@ function toggleSetDone(exIdx, si) {
 
   saveActiveSession(activeSession);
   updateLiveStats();
+  if (activeSession.giantSetMode) updateGiantHighlight();
 
   const partCounts = calcLivePartSets();
   const warnings   = Object.keys(partCounts).filter(p => partCounts[p] > MAX_SETS_PER_PART);
