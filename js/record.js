@@ -393,15 +393,7 @@ function toggleGiantSetMode() {
   if (!activeSession) return;
   activeSession.giantSetMode = !activeSession.giantSetMode;
   // ONにしたら全種目のセット数を最大に揃える（ラウンド表示をきれいに）
-  if (activeSession.giantSetMode) {
-    const exs = activeSession.exercises;
-    if (exs.length > 0) {
-      const maxRounds = Math.max(...exs.map(e => e.sets.length), 1);
-      exs.forEach(ex => {
-        while (ex.sets.length < maxRounds) ex.sets.push(newEmptySet(ex));
-      });
-    }
-  }
+  if (activeSession.giantSetMode) syncGiantRounds();
   saveActiveSession(activeSession);
   // タイマー実行中なら停止
   if (activeSession.giantSetMode && typeof skipTimer === 'function') {
@@ -418,6 +410,17 @@ function newEmptySet(ex) {
   return ex.bilateral
     ? { id: Math.random().toString(36).slice(2), weightL: '', repsL: ex.recReps, weightR: '', repsR: ex.recReps, done: false }
     : { id: Math.random().toString(36).slice(2), weight: '', reps: ex.recReps, done: false };
+}
+
+// 全種目のセット数（＝周数）を最大に揃える
+function syncGiantRounds() {
+  if (!activeSession) return;
+  const exs = activeSession.exercises;
+  if (exs.length === 0) return;
+  const maxRounds = Math.max(...exs.map(e => e.sets.length), 1);
+  exs.forEach(ex => {
+    while (ex.sets.length < maxRounds) ex.sets.push(newEmptySet(ex));
+  });
 }
 
 // ジャイアントセット表示：全種目を1つにまとめ、周（ラウンド）ごとに記録
@@ -872,6 +875,8 @@ function addExToSession(name, part, rec, bilateral) {
     restPause: isHeavy,
     sets: Array.from({ length: setCount }, () => makeSet())
   });
+  // ジャイアントセット中に追加した種目も周数を揃える（歯抜け防止）
+  if (activeSession.giantSetMode) syncGiantRounds();
   saveActiveSession(activeSession);
   document.getElementById('addExModal').classList.remove('active');
   renderRecord();
