@@ -409,9 +409,17 @@ function toggleGiantSetMode() {
 
 // 種目の空セットを生成（bilateral対応）
 function newEmptySet(ex) {
-  return ex.bilateral
-    ? { id: Math.random().toString(36).slice(2), weightL: '', repsL: ex.recReps, weightR: '', repsR: ex.recReps, done: false }
-    : { id: Math.random().toString(36).slice(2), weight: '', reps: ex.recReps, done: false };
+  // 前回値プリフィル: 重量は「同セッション内の直前セット → なければ履歴の前回値」を初期表示する。
+  // （repsは実施後に記録するので推奨repsのまま）
+  const prev = getPrevData(ex.name, ex.bilateral);
+  const last = (ex.sets && ex.sets.length) ? ex.sets[ex.sets.length - 1] : null;
+  if (ex.bilateral) {
+    const wL = (last && last.weightL) || (prev && prev.weight) || '';
+    const wR = (last && last.weightR) || (prev && (prev.weightR || prev.weight)) || '';
+    return { id: Math.random().toString(36).slice(2), weightL: wL, repsL: ex.recReps, weightR: wR, repsR: ex.recReps, done: false };
+  }
+  const w = (last && last.weight) || (prev && prev.weight) || '';
+  return { id: Math.random().toString(36).slice(2), weight: w, reps: ex.recReps, done: false };
 }
 
 // 全種目のセット数（＝周数）を最大に揃える
