@@ -98,7 +98,7 @@ function renderRecord() {
                  border:1px solid ${activeSession.giantSetMode ? '#ff6b6b' : '#444'};
                  border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;
                  cursor:pointer;min-height:40px;">
-          🔥 ジャイアントセット ${activeSession.giantSetMode ? 'ON（まとめ表示中）' : 'OFF'}
+          🔥 ジャイアントセット ${activeSession.giantSetMode ? 'ON（種目別表示中）' : 'OFF'}
         </button>
       </div>
     </div>
@@ -402,7 +402,7 @@ function toggleGiantSetMode() {
     skipTimer();
   }
   showToast(activeSession.giantSetMode
-    ? '🔥 ジャイアントセットON — 全種目をまとめて表示'
+    ? '🔥 ジャイアントセットON — 種目別にまとめて表示'
     : '⏱️ 通常モード — 種目ごとの表示に戻しました');
   renderRecord();
 }
@@ -425,7 +425,7 @@ function syncGiantRounds() {
   });
 }
 
-// ジャイアントセット表示：全種目を1つにまとめ、周（ラウンド）ごとに記録
+// ジャイアントセット表示：種目ごとにまとめ、各種目の周（ラウンド）を並べて記録
 function renderGiantSetView() {
   const exs = activeSession.exercises;
   if (exs.length === 0) {
@@ -433,26 +433,33 @@ function renderGiantSetView() {
       種目がありません。下の「＋ 種目を追加」から追加してください。
     </div>`;
   }
-  const maxRounds = Math.max(...exs.map(e => e.sets.length), 1);
-  let roundsHTML = '';
-  for (let r = 0; r < maxRounds; r++) {
-    const doneInRound = exs.filter(ex => ex.sets[r] && ex.sets[r].done).length;
-    const rowsHTML = exs.map((ex, exIdx) =>
-      ex.sets[r] ? renderGiantRow(exIdx, r, ex.sets[r], ex) : ''
-    ).join('');
-    roundsHTML += `
+  const total = exs.length;
+  let exsHTML = '';
+  exs.forEach((ex, exIdx) => {
+    const doneInEx = ex.sets.filter(s => s.done).length;
+    const prev     = getPrevWeight(ex.name, ex.bilateral);
+    const reorder  = `<div class="giant-reorder">
+        <button class="giant-mv" ${exIdx === 0 ? 'disabled' : ''} onclick="moveExercise(${exIdx},-1)" title="上へ">▲</button>
+        <button class="giant-mv" ${exIdx === total - 1 ? 'disabled' : ''} onclick="moveExercise(${exIdx},1)" title="下へ">▼</button>
+      </div>`;
+    const rowsHTML = ex.sets.map((set, si) => renderGiantRow(exIdx, si, set, ex)).join('');
+    exsHTML += `
       <div class="giant-round">
         <div class="giant-round-title">
-          <span>${r + 1}周目</span>
-          <span class="giant-round-count">${doneInRound}/${exs.length}</span>
+          ${reorder}
+          <div class="giant-ex-namewrap">
+            <div class="giant-ex-name">${ex.name}</div>
+            ${prev ? `<div class="giant-prev">${prev}</div>` : ''}
+          </div>
+          <span class="giant-round-count">${doneInEx}/${ex.sets.length}</span>
         </div>
         ${rowsHTML}
       </div>`;
-  }
+  });
   return `
     <div class="giant-set-wrap">
-      <div class="giant-set-banner">🔥 ジャイアントセット — ${exs.length}種目を連続で。1周ごとに記録します</div>
-      ${roundsHTML}
+      <div class="giant-set-banner">🔥 ジャイアントセット — ${exs.length}種目を連続で。種目ごとにまとめて記録します</div>
+      ${exsHTML}
       <button class="add-set-btn" onclick="addRound()">＋ 周を追加（全${exs.length}種目に1セット）</button>
     </div>`;
 }
@@ -460,22 +467,12 @@ function renderGiantSetView() {
 function renderGiantRow(exIdx, si, set, ex) {
   const doneClass = set.done ? 'done' : '';
   const rowClass  = set.done ? 'completed' : '';
-  const isFirst   = (si === 0);            // 1周目だけ並べ替え・前回値を出す
-  const total     = activeSession.exercises.length;
-  const prev      = isFirst ? getPrevWeight(ex.name, ex.bilateral) : null;
-  const reorder   = `<div class="giant-reorder">${isFirst ? `
-        <button class="giant-mv" ${exIdx === 0 ? 'disabled' : ''} onclick="moveExercise(${exIdx},-1)" title="上へ">▲</button>
-        <button class="giant-mv" ${exIdx === total - 1 ? 'disabled' : ''} onclick="moveExercise(${exIdx},1)" title="下へ">▼</button>` : ''}</div>`;
-  const nameWrap  = `<div class="giant-ex-namewrap">
-        <div class="giant-ex-name">${ex.name}</div>
-        ${prev ? `<div class="giant-prev">${prev}</div>` : ''}
-      </div>`;
+  const roundLbl  = `<div class="giant-round-label">${si + 1}周</div>`;
   const doneBtn   = `<button class="set-done-btn ${doneClass}" id="doneBtn_${exIdx}_${si}" onclick="toggleSetDone(${exIdx},${si})">✓</button>`;
   if (ex.bilateral) {
     return `
       <div class="giant-ex-row ${rowClass}" id="setRow_${exIdx}_${si}">
-        ${reorder}
-        ${nameWrap}
+        ${roundLbl}
         <div class="giant-bilateral">
           <div class="giant-lr">
             <span style="color:#4fc3f7;font-weight:800;font-size:11px;min-width:14px;">R</span>
@@ -503,8 +500,7 @@ function renderGiantRow(exIdx, si, set, ex) {
   }
   return `
     <div class="giant-ex-row ${rowClass}" id="setRow_${exIdx}_${si}">
-      ${reorder}
-      ${nameWrap}
+      ${roundLbl}
       <input type="number" class="weight-input" id="w_${exIdx}_${si}"
         value="${set.weight || ''}" placeholder="kg" min="0" step="0.5"
         oninput="updateSetField(${exIdx},${si},'weight',this.value)">
