@@ -98,7 +98,7 @@ function renderRecord() {
                  border:1px solid ${activeSession.giantSetMode ? '#ff6b6b' : '#444'};
                  border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;
                  cursor:pointer;min-height:40px;">
-          🔥 ジャイアントセット ${activeSession.giantSetMode ? 'ON（種目別表示中）' : 'OFF'}
+          🔥 ジャイアントセット ${activeSession.giantSetMode ? 'ON（部位別表示中）' : 'OFF'}
         </button>
       </div>
     </div>
@@ -402,7 +402,7 @@ function toggleGiantSetMode() {
     skipTimer();
   }
   showToast(activeSession.giantSetMode
-    ? '🔥 ジャイアントセットON — 種目別にまとめて表示'
+    ? '🔥 ジャイアントセットON — 部位別にまとめて表示'
     : '⏱️ 通常モード — 種目ごとの表示に戻しました');
   renderRecord();
 }
@@ -425,7 +425,7 @@ function syncGiantRounds() {
   });
 }
 
-// ジャイアントセット表示：種目ごとにまとめ、各種目の周（ラウンド）を並べて記録
+// ジャイアントセット表示：部位ごとにまとめ、その中で各種目の周（ラウンド）を並べて記録
 function renderGiantSetView() {
   const exs = activeSession.exercises;
   if (exs.length === 0) {
@@ -434,16 +434,41 @@ function renderGiantSetView() {
     </div>`;
   }
   const total = exs.length;
-  let exsHTML = '';
+  // 部位ごとにグループ化（最初に登場した部位の順を維持）
+  const groups = [];
+  const partPos = {};
   exs.forEach((ex, exIdx) => {
-    const doneInEx = ex.sets.filter(s => s.done).length;
-    const prev     = getPrevWeight(ex.name, ex.bilateral);
-    const reorder  = `<div class="giant-reorder">
+    const p = ex.part || 'core';
+    if (partPos[p] === undefined) { partPos[p] = groups.length; groups.push({ part: p, items: [] }); }
+    groups[partPos[p]].items.push({ ex, exIdx });
+  });
+  const groupsHTML = groups.map(g => {
+    const bp    = BODY_PARTS[g.part] || { label: g.part, badge: '' };
+    const exsHTML = g.items.map(({ ex, exIdx }) => renderGiantExercise(ex, exIdx, total)).join('');
+    return `
+      <div class="giant-part-group">
+        <div class="giant-part-title"><span class="badge ${bp.badge}">${bp.label}</span></div>
+        ${exsHTML}
+      </div>`;
+  }).join('');
+  return `
+    <div class="giant-set-wrap">
+      <div class="giant-set-banner">🔥 ジャイアントセット — ${exs.length}種目を連続で。部位ごとにまとめて記録します</div>
+      ${groupsHTML}
+      <button class="add-set-btn" onclick="addRound()">＋ 周を追加（全${exs.length}種目に1セット）</button>
+    </div>`;
+}
+
+// 1種目分のカード（種目名・並べ替え・完了数 + 各周の記録行）
+function renderGiantExercise(ex, exIdx, total) {
+  const doneInEx = ex.sets.filter(s => s.done).length;
+  const prev     = getPrevWeight(ex.name, ex.bilateral);
+  const reorder  = `<div class="giant-reorder">
         <button class="giant-mv" ${exIdx === 0 ? 'disabled' : ''} onclick="moveExercise(${exIdx},-1)" title="上へ">▲</button>
         <button class="giant-mv" ${exIdx === total - 1 ? 'disabled' : ''} onclick="moveExercise(${exIdx},1)" title="下へ">▼</button>
       </div>`;
-    const rowsHTML = ex.sets.map((set, si) => renderGiantRow(exIdx, si, set, ex)).join('');
-    exsHTML += `
+  const rowsHTML = ex.sets.map((set, si) => renderGiantRow(exIdx, si, set, ex)).join('');
+  return `
       <div class="giant-round">
         <div class="giant-round-title">
           ${reorder}
@@ -455,13 +480,6 @@ function renderGiantSetView() {
         </div>
         ${rowsHTML}
       </div>`;
-  });
-  return `
-    <div class="giant-set-wrap">
-      <div class="giant-set-banner">🔥 ジャイアントセット — ${exs.length}種目を連続で。種目ごとにまとめて記録します</div>
-      ${exsHTML}
-      <button class="add-set-btn" onclick="addRound()">＋ 周を追加（全${exs.length}種目に1セット）</button>
-    </div>`;
 }
 
 function renderGiantRow(exIdx, si, set, ex) {
