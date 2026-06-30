@@ -98,7 +98,7 @@ function renderRecord() {
                  border:1px solid ${activeSession.giantSetMode ? '#ff6b6b' : '#444'};
                  border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;
                  cursor:pointer;min-height:40px;">
-          🔥 ジャイアントセット ${activeSession.giantSetMode ? 'ON（部位別表示中）' : 'OFF'}
+          🔥 ジャイアントセット ${activeSession.giantSetMode ? 'ON（部位別・周ごと表示中）' : 'OFF'}
         </button>
       </div>
     </div>
@@ -402,7 +402,7 @@ function toggleGiantSetMode() {
     skipTimer();
   }
   showToast(activeSession.giantSetMode
-    ? '🔥 ジャイアントセットON — 部位別にまとめて表示'
+    ? '🔥 ジャイアントセットON — 部位別・周ごとにまとめて表示'
     : '⏱️ 通常モード — 種目ごとの表示に戻しました');
   renderRecord();
 }
@@ -425,7 +425,7 @@ function syncGiantRounds() {
   });
 }
 
-// ジャイアントセット表示：部位ごとにまとめ、その中で各種目の周（ラウンド）を並べて記録
+// ジャイアントセット表示：部位ごと → その中で周（ラウンド）ごと → 同部位の種目を並べて記録
 function renderGiantSetView() {
   const exs = activeSession.exercises;
   if (exs.length === 0) {
@@ -433,7 +433,6 @@ function renderGiantSetView() {
       種目がありません。下の「＋ 種目を追加」から追加してください。
     </div>`;
   }
-  const total = exs.length;
   // 部位ごとにグループ化（最初に登場した部位の順を維持）
   const groups = [];
   const partPos = {};
@@ -443,54 +442,57 @@ function renderGiantSetView() {
     groups[partPos[p]].items.push({ ex, exIdx });
   });
   const groupsHTML = groups.map(g => {
-    const bp    = BODY_PARTS[g.part] || { label: g.part, badge: '' };
-    const exsHTML = g.items.map(({ ex, exIdx }) => renderGiantExercise(ex, exIdx, total)).join('');
+    const bp        = BODY_PARTS[g.part] || { label: g.part, badge: '' };
+    const maxRounds = Math.max(...g.items.map(it => it.ex.sets.length), 1);
+    let roundsHTML  = '';
+    for (let r = 0; r < maxRounds; r++) {
+      const inRound     = g.items.filter(it => it.ex.sets[r]);
+      const doneInRound = inRound.filter(it => it.ex.sets[r].done).length;
+      const rowsHTML    = g.items.map(it =>
+        it.ex.sets[r] ? renderGiantRow(it.exIdx, r, it.ex.sets[r], it.ex) : ''
+      ).join('');
+      roundsHTML += `
+        <div class="giant-round">
+          <div class="giant-round-title">
+            <span>${r + 1}周目</span>
+            <span class="giant-round-count">${doneInRound}/${inRound.length}</span>
+          </div>
+          ${rowsHTML}
+        </div>`;
+    }
     return `
       <div class="giant-part-group">
         <div class="giant-part-title"><span class="badge ${bp.badge}">${bp.label}</span></div>
-        ${exsHTML}
+        ${roundsHTML}
       </div>`;
   }).join('');
   return `
     <div class="giant-set-wrap">
-      <div class="giant-set-banner">🔥 ジャイアントセット — ${exs.length}種目を連続で。部位ごとにまとめて記録します</div>
+      <div class="giant-set-banner">🔥 ジャイアントセット — 部位ごと・1周ごとにまとめて記録します</div>
       ${groupsHTML}
       <button class="add-set-btn" onclick="addRound()">＋ 周を追加（全${exs.length}種目に1セット）</button>
     </div>`;
 }
 
-// 1種目分のカード（種目名・並べ替え・完了数 + 各周の記録行）
-function renderGiantExercise(ex, exIdx, total) {
-  const doneInEx = ex.sets.filter(s => s.done).length;
-  const prev     = getPrevWeight(ex.name, ex.bilateral);
-  const reorder  = `<div class="giant-reorder">
-        <button class="giant-mv" ${exIdx === 0 ? 'disabled' : ''} onclick="moveExercise(${exIdx},-1)" title="上へ">▲</button>
-        <button class="giant-mv" ${exIdx === total - 1 ? 'disabled' : ''} onclick="moveExercise(${exIdx},1)" title="下へ">▼</button>
-      </div>`;
-  const rowsHTML = ex.sets.map((set, si) => renderGiantRow(exIdx, si, set, ex)).join('');
-  return `
-      <div class="giant-round">
-        <div class="giant-round-title">
-          ${reorder}
-          <div class="giant-ex-namewrap">
-            <div class="giant-ex-name">${ex.name}</div>
-            ${prev ? `<div class="giant-prev">${prev}</div>` : ''}
-          </div>
-          <span class="giant-round-count">${doneInEx}/${ex.sets.length}</span>
-        </div>
-        ${rowsHTML}
-      </div>`;
-}
-
 function renderGiantRow(exIdx, si, set, ex) {
   const doneClass = set.done ? 'done' : '';
   const rowClass  = set.done ? 'completed' : '';
-  const roundLbl  = `<div class="giant-round-label">${si + 1}周</div>`;
+  const isFirst   = (si === 0);            // 1周目だけ並べ替え・前回値を出す
+  const total     = activeSession.exercises.length;
+  const prev      = isFirst ? getPrevWeight(ex.name, ex.bilateral) : null;
+  const reorder   = `<div class="giant-reorder">${isFirst ? `
+        <button class="giant-mv" ${exIdx === 0 ? 'disabled' : ''} onclick="moveExercise(${exIdx},-1)" title="上へ">▲</button>
+        <button class="giant-mv" ${exIdx === total - 1 ? 'disabled' : ''} onclick="moveExercise(${exIdx},1)" title="下へ">▼</button>` : ''}</div>`;
+  const nameWrap  = `<div class="giant-ex-namewrap">
+        <div class="giant-ex-name">${ex.name}</div>
+        ${prev ? `<div class="giant-prev">${prev}</div>` : ''}
+      </div>`;
   const doneBtn   = `<button class="set-done-btn ${doneClass}" id="doneBtn_${exIdx}_${si}" onclick="toggleSetDone(${exIdx},${si})">✓</button>`;
   if (ex.bilateral) {
     return `
       <div class="giant-ex-row ${rowClass}" id="setRow_${exIdx}_${si}">
-        ${roundLbl}
+        ${reorder}
+        ${nameWrap}
         <div class="giant-bilateral">
           <div class="giant-lr">
             <span style="color:#4fc3f7;font-weight:800;font-size:11px;min-width:14px;">R</span>
@@ -518,7 +520,8 @@ function renderGiantRow(exIdx, si, set, ex) {
   }
   return `
     <div class="giant-ex-row ${rowClass}" id="setRow_${exIdx}_${si}">
-      ${roundLbl}
+      ${reorder}
+      ${nameWrap}
       <input type="number" class="weight-input" id="w_${exIdx}_${si}"
         value="${set.weight || ''}" placeholder="kg" min="0" step="0.5"
         oninput="updateSetField(${exIdx},${si},'weight',this.value)">
