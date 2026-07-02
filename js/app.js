@@ -148,6 +148,24 @@ function renderHome() {
 
   const todayRecs = buildTodayRecs(history);
 
+  // バックアップ状況（履歴がある場合のみ表示）
+  let backupWarnHTML = '';  // 21日以上未バックアップ → 警告カード
+  let backupInfoHTML = '';  // バックアップ済み → 最終日を小さく表示
+  if (history.length > 0) {
+    const sinceB = daysSinceBackup();
+    if (sinceB === null || sinceB >= 21) {
+      const msg = sinceB === null ? 'バックアップがまだありません' : `最終バックアップから${sinceB}日経過`;
+      backupWarnHTML = `
+        <div class="card" style="border:1.5px solid #ff6b6b66;background:#1a1414;">
+          <div style="font-size:13px;color:#ff8a8a;font-weight:700;margin-bottom:6px;">💾 ${msg}</div>
+          <div style="font-size:12px;color:#888;margin-bottom:10px;line-height:1.6;">iOSは容量不足や長期間の未使用でPWAのデータを消すことがあります。積み上げた記録を守るため、定期的にエクスポートしましょう。</div>
+          <button class="btn btn-outline btn-sm" style="width:100%;" onclick="exportData()">今すぐバックアップ（JSON書き出し）</button>
+        </div>`;
+    } else {
+      backupInfoHTML = `<div style="text-align:center;font-size:12px;color:#555;margin-top:8px;">💾 最終バックアップ：${sinceB === 0 ? '今日' : `${sinceB}日前`}</div>`;
+    }
+  }
+
   el.innerHTML = `
     <div class="hero-section">
       <svg class="hero-dumbbell" viewBox="0 0 120 48" fill="none" stroke="#e8ff00" stroke-width="3" stroke-linecap="round">
@@ -195,9 +213,11 @@ function renderHome() {
       <div class="card-title">最近のワークアウト</div>
       ${recentHTML}
     </div>
+    ${backupWarnHTML}
     <button class="btn btn-outline btn-sm" style="width:100%;color:#555;border-color:#252525;font-size:13px;" onclick="openSettingsModal()">
       ⚙️ 設定 / データのバックアップ
-    </button>`;
+    </button>
+    ${backupInfoHTML}`;
 }
 
 function resumeSession() {
@@ -817,4 +837,8 @@ const _saved = getActiveSession();
 if (_saved) activeSession = _saved;
 selectedSplit = load('t101_split', 2);
 initDefaultPRs();
+// iOSにサイトデータを勝手に消させないよう永続ストレージを要求
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(() => {});
+}
 renderHome();

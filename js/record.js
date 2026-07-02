@@ -806,7 +806,9 @@ function exportData() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  saveLastBackup(todayStr());
   showToast('✓ エクスポート完了');
+  if (currentTab === 'home') renderHome();
 }
 
 function importData(event) {
@@ -879,6 +881,7 @@ async function clearAllData() {
   localStorage.removeItem('t101_session');
   localStorage.removeItem('t101_big3');
   localStorage.removeItem('t101_prog_start');
+  localStorage.removeItem('t101_backup_date');
   activeSession = null;
   showToast('✓ データを削除しました');
   closeSettingsModal();

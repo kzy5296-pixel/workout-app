@@ -154,6 +154,16 @@ function saveProgStart(d) { save('t101_prog_start', d); }
 function getGymDays()    { return load('t101_restdays', []); }
 function saveGymDays(d)  { save('t101_restdays', d); }
 
+function getLastBackup()   { return load('t101_backup_date', null); }
+function saveLastBackup(d) { save('t101_backup_date', d); }
+
+// 最終バックアップからの経過日数。未バックアップなら null
+function daysSinceBackup() {
+  const d = getLastBackup();
+  if (!d) return null;
+  return Math.floor((new Date(todayStr()) - new Date(d)) / 86400000);
+}
+
 // ============================================================
 //  DATE HELPERS
 // ============================================================

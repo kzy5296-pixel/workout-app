@@ -63,11 +63,172 @@ function calNextMonth() {
   renderCalendar();
 }
 
+// ============================================================
+//  種目別 重量推移
+// ============================================================
+
+let progressExName = null;
+
+// 履歴に登場する種目名を「最後にやった日が新しい順」で返す
+function listTrainedExercises() {
+  const lastDate = {};
+  getHistory().forEach(s => {
+    (s.exercises || []).forEach(ex => {
+      if ((ex.sets || []).some(st => st.done)) lastDate[ex.name] = s.date;
+    });
+  });
+  return Object.keys(lastDate).sort((a, b) => lastDate[b].localeCompare(lastDate[a]));
+}
+
+// セッションごとの最大重量（完了セットのみ）。bilateral は L/R 別
+function getExerciseProgressData(exName) {
+  const out = [];
+  getHistory().forEach(s => {
+    const ex = (s.exercises || []).find(e => e.name === exName);
+    if (!ex) return;
+    const done = (ex.sets || []).filter(st => st.done);
+    if (done.length === 0) return;
+    if (ex.bilateral) {
+      const l = Math.max(0, ...done.map(st => parseFloat(st.weightL) || 0));
+      const r = Math.max(0, ...done.map(st => parseFloat(st.weightR) || 0));
+      if (l > 0 || r > 0) out.push({ date: s.date, intensity: s.intensity, bilateral: true, l, r });
+    } else {
+      const w = Math.max(0, ...done.map(st => parseFloat(st.weight) || 0));
+      if (w > 0) out.push({ date: s.date, intensity: s.intensity, w });
+    }
+  });
+  return out;
+}
+
+function onProgressExChange(name) {
+  progressExName = name;
+  drawExerciseProgressChart();
+}
+
+function drawExerciseProgressChart() {
+  const canvas = document.getElementById('exProgressChart');
+  const legendEl = document.getElementById('exProgressLegend');
+  if (!canvas || !progressExName) return;
+
+  const data = getExerciseProgressData(progressExName).slice(-12);
+
+  const W = canvas.parentElement.clientWidth;
+  const H = 210;
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  if (data.length === 0) {
+    ctx.fillStyle = '#555';
+    ctx.font      = '13px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('この種目の重量記録はまだありません', W / 2, H / 2);
+    if (legendEl) legendEl.innerHTML = '';
+    return;
+  }
+
+  const bilateral = data.some(d => d.bilateral);
+  const values = [];
+  data.forEach(d => {
+    if (d.bilateral) { if (d.l > 0) values.push(d.l); if (d.r > 0) values.push(d.r); }
+    else values.push(d.w);
+  });
+  let minV = Math.min(...values);
+  let maxV = Math.max(...values);
+  if (minV === maxV) { minV -= 2; maxV += 2; }
+  const span = maxV - minV;
+  minV = Math.max(0, minV - span * 0.2);
+  maxV = maxV + span * 0.2;
+
+  const padL = 40, padR = 14, padT = 18, padB = 30;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const xAt = i => padL + (data.length === 1 ? chartW / 2 : chartW * i / (data.length - 1));
+  const yAt = v => padT + chartH * (1 - (v - minV) / (maxV - minV));
+
+  // 横グリッド＋重量ラベル
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth   = 1;
+  for (let i = 0; i <= 4; i++) {
+    const v = minV + (maxV - minV) * i / 4;
+    const y = yAt(v);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
+    ctx.fillStyle  = '#555';
+    ctx.font       = '10px system-ui';
+    ctx.textAlign  = 'right';
+    ctx.fillText(`${Math.round(v * 2) / 2}`, padL - 5, y + 3);
+  }
+
+  const drawLine = (getter, color) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 2;
+    ctx.beginPath();
+    let started = false;
+    data.forEach((d, i) => {
+      const v = getter(d);
+      if (!v) return;
+      if (!started) { ctx.moveTo(xAt(i), yAt(v)); started = true; }
+      else ctx.lineTo(xAt(i), yAt(v));
+    });
+    ctx.stroke();
+  };
+  const drawDots = (getter, colorFn, labelColor) => {
+    data.forEach((d, i) => {
+      const v = getter(d);
+      if (!v) return;
+      ctx.fillStyle = colorFn(d);
+      ctx.beginPath();
+      ctx.arc(xAt(i), yAt(v), 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = labelColor;
+      ctx.font      = 'bold 9px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(v, xAt(i), yAt(v) - 8);
+    });
+  };
+
+  if (bilateral) {
+    drawLine(d => d.l, '#4fc3f7');
+    drawLine(d => d.r, '#ff6b6b');
+    drawDots(d => d.l, () => '#4fc3f7', '#4fc3f7');
+    drawDots(d => d.r, () => '#ff6b6b', '#ff6b6b');
+    if (legendEl) legendEl.innerHTML = `
+      <span><span class="legend-dot" style="background:#4fc3f7;"></span>左 (L)</span>
+      <span><span class="legend-dot" style="background:#ff6b6b;"></span>右 (R)</span>`;
+  } else {
+    // 点の色 = そのセッションのPhase（重量のジグザグはPhaseの違いなので色で見せる）
+    const phaseColor = d => (INTENSITY_TYPES[d.intensity] || {}).color || '#e8ff00';
+    drawLine(d => d.w, '#e8ff0088');
+    drawDots(d => d.w, phaseColor, '#ccc');
+    if (legendEl) legendEl.innerHTML = `
+      <span><span class="legend-dot" style="background:#e8ff00;"></span>P1 中重量</span>
+      <span><span class="legend-dot" style="background:#ff6b6b;"></span>P2 高重量</span>
+      <span><span class="legend-dot" style="background:#4fc3f7;"></span>P3 低重量</span>`;
+  }
+
+  // 日付ラベル（詰まりすぎないよう間引く）
+  const step = Math.ceil(data.length / 6);
+  ctx.fillStyle = '#555';
+  ctx.font      = '10px system-ui';
+  ctx.textAlign = 'center';
+  data.forEach((d, i) => {
+    if (i % step !== 0 && i !== data.length - 1) return;
+    const dt = new Date(d.date + 'T12:00:00');
+    ctx.fillText(`${dt.getMonth() + 1}/${dt.getDate()}`, xAt(i), H - padB + 16);
+  });
+}
+
 function renderAnalysis() {
   const el      = document.getElementById('screen-analysis');
   const history = getHistory();
   const weekly  = getWeeklySetsPerPart();
   const prs     = getPRs();
+
+  const trainedExs = listTrainedExercises();
+  if (!progressExName || !trainedExs.includes(progressExName)) {
+    progressExName = trainedExs[0] || null;
+  }
 
   const freqMap = {};
   Object.keys(BODY_PARTS).forEach(p => freqMap[p] = 0);
@@ -183,6 +344,21 @@ function renderAnalysis() {
       </div>
     </div>
     <div class="card">
+      <div class="card-title">📊 種目別 重量推移（直近12回）</div>
+      ${trainedExs.length === 0
+        ? '<div class="empty-state"><div class="es-icon">📊</div><div>記録が増えると種目ごとの重量推移が見られます</div></div>'
+        : `
+      <select id="progressExSelect" onchange="onProgressExChange(this.value)"
+              style="width:100%;background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:10px;
+                     padding:11px 12px;font-size:14px;margin-bottom:10px;-webkit-appearance:none;appearance:none;">
+        ${trainedExs.map(n => `<option value="${n}" ${n === progressExName ? 'selected' : ''}>${n}</option>`).join('')}
+      </select>
+      <div class="chart-wrap">
+        <canvas id="exProgressChart"></canvas>
+      </div>
+      <div id="exProgressLegend" class="cal-legend" style="margin-top:8px;"></div>`}
+    </div>
+    <div class="card">
       <div class="card-title">🔄 マンデルブロ Phase ローテーション（部位別・直近6回）</div>
       <div style="font-size:11px;color:#888;margin-bottom:10px;line-height:1.6;">
         Phase 1（中重量）→ Phase 2（高重量）→ Phase 3（低重量）を順番に回すと刺激が偏らず筋肉が常に新しい刺激に晒されます。
@@ -211,6 +387,7 @@ function renderAnalysis() {
   requestAnimationFrame(() => {
     drawWeeklyChart(weekly);
     drawVolumeTrendChart(history);
+    drawExerciseProgressChart();
     renderPhaseRotation(history);
     renderCalendar();
   });
