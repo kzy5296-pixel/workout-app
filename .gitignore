@@ -1,0 +1,10 @@
+# シークレット保護
+.env
+.env.local
+*.key
+
+# ローカル設定・トークン（誤コミット防止）
+.claude/settings.local.json
+
+# ai-staff は独立したgitリポジトリ（kzy5296-pixel/ai-staff）で管理する
+ai-staff/

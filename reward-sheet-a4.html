@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>100こ達成 ごほうびシート</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 8mm;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #f2f7ff;
+      color: #1d2430;
+      font-family: "Hiragino Maru Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+    }
+
+    .sheet {
+      position: relative;
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      padding: 10mm;
+      overflow: hidden;
+      background:
+        linear-gradient(#87cdfb 0 15%, transparent 15%),
+        linear-gradient(180deg, #fff8d7 0%, #fffef8 48%, #e9f8dc 100%);
+      border: 4px solid #1d2430;
+    }
+
+    .cloud {
+      position: absolute;
+      width: 27mm;
+      height: 10mm;
+      background: #fff;
+      border: 2px solid #1d2430;
+      border-radius: 999px;
+      box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .08);
+    }
+
+    .cloud::before,
+    .cloud::after {
+      content: "";
+      position: absolute;
+      bottom: 2mm;
+      background: #fff;
+      border: 2px solid #1d2430;
+      border-bottom: 0;
+      border-radius: 999px 999px 0 0;
+    }
+
+    .cloud::before {
+      left: 5mm;
+      width: 8mm;
+      height: 8mm;
+    }
+
+    .cloud::after {
+      left: 13mm;
+      width: 10mm;
+      height: 11mm;
+    }
+
+    .cloud.one {
+      top: 16mm;
+      left: 14mm;
+    }
+
+    .cloud.two {
+      top: 23mm;
+      right: 20mm;
+      transform: scale(.85);
+    }
+
+    .header {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 30mm 1fr 30mm;
+      align-items: end;
+      gap: 5mm;
+      margin-bottom: 4mm;
+    }
+
+    h1 {
+      margin: 0;
+      text-align: center;
+      font-size: 15mm;
+      line-height: .95;
+      letter-spacing: 0;
+      color: #e43b35;
+      text-shadow: 1.3mm 1.3mm 0 #ffe36f, 2mm 2mm 0 #1d2430;
+    }
+
+    .subtitle {
+      margin-top: 3mm;
+      text-align: center;
+      font-size: 4.2mm;
+      font-weight: 800;
+    }
+
+    .field-row {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5mm;
+      margin: 2mm 0 5mm;
+      font-size: 4mm;
+      font-weight: 800;
+    }
+
+    .line-field {
+      display: flex;
+      align-items: end;
+      gap: 2mm;
+      min-height: 10mm;
+      padding: 2mm 3mm;
+      background: rgba(255, 255, 255, .78);
+      border: 2px solid #1d2430;
+      border-radius: 3mm;
+    }
+
+    .line {
+      flex: 1;
+      border-bottom: 2px solid #1d2430;
+      height: 6mm;
+    }
+
+    .hero,
+    .dino {
+      justify-self: center;
+      align-self: center;
+    }
+
+    .hero {
+      position: relative;
+      width: 26mm;
+      height: 34mm;
+    }
+
+    .hero .hat {
+      position: absolute;
+      top: 0;
+      left: 4mm;
+      width: 18mm;
+      height: 8mm;
+      background: #e43b35;
+      border: 2px solid #1d2430;
+      border-radius: 5mm 5mm 2mm 2mm;
+    }
+
+    .hero .hat::after {
+      content: "";
+      position: absolute;
+      right: -4mm;
+      bottom: -1.6mm;
+      width: 11mm;
+      height: 3.5mm;
+      background: #e43b35;
+      border: 2px solid #1d2430;
+      border-radius: 999px;
+    }
+
+    .hero .face {
+      position: absolute;
+      top: 7mm;
+      left: 5mm;
+      width: 17mm;
+      height: 16mm;
+      background: #ffd39a;
+      border: 2px solid #1d2430;
+      border-radius: 45% 45% 50% 50%;
+    }
+
+    .hero .eye {
+      position: absolute;
+      top: 13mm;
+      width: 2.2mm;
+      height: 3mm;
+      background: #1d2430;
+      border-radius: 999px;
+    }
+
+    .hero .eye.left {
+      left: 10mm;
+    }
+
+    .hero .eye.right {
+      left: 17mm;
+    }
+
+    .hero .mustache {
+      position: absolute;
+      top: 17.5mm;
+      left: 10mm;
+      width: 9mm;
+      height: 3.2mm;
+      background: #51301f;
+      border-radius: 999px;
+    }
+
+    .hero .body {
+      position: absolute;
+      top: 22mm;
+      left: 6mm;
+      width: 15mm;
+      height: 10mm;
+      background: #2b67c7;
+      border: 2px solid #1d2430;
+      border-radius: 3mm 3mm 2mm 2mm;
+    }
+
+    .hero .body::before,
+    .hero .body::after {
+      content: "";
+      position: absolute;
+      top: 2.5mm;
+      width: 2mm;
+      height: 2mm;
+      background: #ffe36f;
+      border: 1px solid #1d2430;
+      border-radius: 50%;
+    }
+
+    .hero .body::before {
+      left: 3mm;
+    }
+
+    .hero .body::after {
+      right: 3mm;
+    }
+
+    .dino {
+      position: relative;
+      width: 30mm;
+      height: 33mm;
+    }
+
+    .dino .head {
+      position: absolute;
+      top: 4mm;
+      left: 5mm;
+      width: 22mm;
+      height: 17mm;
+      background: #48b85f;
+      border: 2px solid #1d2430;
+      border-radius: 55% 45% 45% 55%;
+    }
+
+    .dino .snout {
+      position: absolute;
+      top: 11mm;
+      left: 13mm;
+      width: 16mm;
+      height: 10mm;
+      background: #f4f0d2;
+      border: 2px solid #1d2430;
+      border-radius: 50%;
+    }
+
+    .dino .eye {
+      position: absolute;
+      top: 7mm;
+      width: 5mm;
+      height: 7mm;
+      background: #fff;
+      border: 2px solid #1d2430;
+      border-radius: 999px;
+    }
+
+    .dino .eye.left {
+      left: 9mm;
+    }
+
+    .dino .eye.right {
+      left: 16mm;
+    }
+
+    .dino .eye::after {
+      content: "";
+      position: absolute;
+      left: 1.6mm;
+      top: 2.2mm;
+      width: 1.4mm;
+      height: 2.2mm;
+      background: #1d2430;
+      border-radius: 999px;
+    }
+
+    .dino .cheek {
+      position: absolute;
+      top: 19mm;
+      left: 16mm;
+      width: 5mm;
+      height: 3mm;
+      background: #ff8aa0;
+      border-radius: 50%;
+    }
+
+    .dino .body {
+      position: absolute;
+      top: 20mm;
+      left: 6mm;
+      width: 17mm;
+      height: 10mm;
+      background: #48b85f;
+      border: 2px solid #1d2430;
+      border-radius: 45% 45% 50% 50%;
+    }
+
+    .progress-wrap {
+      position: relative;
+      z-index: 1;
+      padding: 5mm;
+      background: rgba(255, 255, 255, .86);
+      border: 3px solid #1d2430;
+      border-radius: 5mm;
+      box-shadow: 0 2mm 0 #ffd34f;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 1.8mm;
+    }
+
+    .cell {
+      display: grid;
+      place-items: center;
+      aspect-ratio: 1 / 1;
+      background: #fff;
+      border: 2px solid #1d2430;
+      border-radius: 2mm;
+      color: #1d2430;
+      font-size: 3.8mm;
+      font-weight: 900;
+      box-shadow: inset 0 -1.2mm 0 rgba(0, 0, 0, .08);
+    }
+
+    .cell:nth-child(5n) {
+      background: #fff4b7;
+    }
+
+    .cell:nth-child(10n) {
+      background: #fbd3d0;
+    }
+
+    .cell.goal {
+      color: #fff;
+      background: #e43b35;
+      font-size: 5mm;
+    }
+
+    .reward {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1fr 40mm;
+      gap: 5mm;
+      align-items: center;
+      margin-top: 6mm;
+    }
+
+    .reward-box {
+      min-height: 24mm;
+      padding: 4mm;
+      background: #fff;
+      border: 3px solid #1d2430;
+      border-radius: 4mm;
+    }
+
+    .reward-title {
+      margin-bottom: 2mm;
+      color: #e43b35;
+      font-size: 5.2mm;
+      font-weight: 900;
+    }
+
+    .reward-line {
+      height: 9mm;
+      border-bottom: 2px solid #1d2430;
+    }
+
+    .castle {
+      position: relative;
+      height: 27mm;
+    }
+
+    .tower,
+    .keep {
+      position: absolute;
+      bottom: 0;
+      background: #f6c85f;
+      border: 2px solid #1d2430;
+    }
+
+    .tower {
+      width: 12mm;
+      height: 24mm;
+      border-radius: 2mm 2mm 0 0;
+    }
+
+    .tower.left {
+      left: 2mm;
+    }
+
+    .tower.right {
+      right: 2mm;
+    }
+
+    .keep {
+      left: 10mm;
+      bottom: 0;
+      width: 20mm;
+      height: 18mm;
+      border-radius: 2mm 2mm 0 0;
+    }
+
+    .flag {
+      position: absolute;
+      top: 0;
+      left: 19mm;
+      width: 0;
+      height: 0;
+      border-top: 4mm solid transparent;
+      border-bottom: 4mm solid transparent;
+      border-left: 12mm solid #48b85f;
+      filter: drop-shadow(1px 1px 0 #1d2430);
+    }
+
+    .door {
+      position: absolute;
+      left: 17mm;
+      bottom: 0;
+      width: 7mm;
+      height: 11mm;
+      background: #7a4a28;
+      border: 2px solid #1d2430;
+      border-bottom: 0;
+      border-radius: 999px 999px 0 0;
+    }
+
+    .footer {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 17mm;
+      background: repeating-linear-gradient(
+        90deg,
+        #5cbd52 0 12mm,
+        #50aa48 12mm 24mm
+      );
+      border-top: 4px solid #1d2430;
+    }
+
+    .footer::before {
+      content: "";
+      position: absolute;
+      inset: -8mm 0 auto;
+      height: 8mm;
+      background: repeating-linear-gradient(
+        90deg,
+        transparent 0 12mm,
+        rgba(0, 0, 0, .09) 12mm 24mm
+      );
+      clip-path: polygon(0 100%, 5% 20%, 10% 100%, 15% 25%, 20% 100%, 25% 30%, 30% 100%, 35% 24%, 40% 100%, 45% 30%, 50% 100%, 55% 22%, 60% 100%, 65% 30%, 70% 100%, 75% 25%, 80% 100%, 85% 28%, 90% 100%, 95% 21%, 100% 100%);
+    }
+
+    .print-note {
+      width: 210mm;
+      margin: 10px auto;
+      color: #4b5563;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .sheet {
+        width: auto;
+        min-height: auto;
+        margin: 0;
+        border-width: 3px;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
+
+      .print-note {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="sheet" aria-label="100こ達成ごほうびシート">
+    <div class="cloud one"></div>
+    <div class="cloud two"></div>
+
+    <section class="header">
+      <div class="hero" aria-hidden="true">
+        <div class="hat"></div>
+        <div class="face"></div>
+        <div class="eye left"></div>
+        <div class="eye right"></div>
+        <div class="mustache"></div>
+        <div class="body"></div>
+      </div>
+
+      <div>
+        <h1>100こ<br>たっせい</h1>
+        <div class="subtitle">できたら ごほうび！ 1こできたら 1マスぬろう</div>
+      </div>
+
+      <div class="dino" aria-hidden="true">
+        <div class="head"></div>
+        <div class="snout"></div>
+        <div class="eye left"></div>
+        <div class="eye right"></div>
+        <div class="cheek"></div>
+        <div class="body"></div>
+      </div>
+    </section>
+
+    <section class="field-row">
+      <div class="line-field">なまえ <span class="line"></span></div>
+      <div class="line-field">やること <span class="line"></span></div>
+    </section>
+
+    <section class="progress-wrap" aria-label="100マス">
+      <div class="grid">
+        <div class="cell">1</div>
+        <div class="cell">2</div>
+        <div class="cell">3</div>
+        <div class="cell">4</div>
+        <div class="cell">5</div>
+        <div class="cell">6</div>
+        <div class="cell">7</div>
+        <div class="cell">8</div>
+        <div class="cell">9</div>
+        <div class="cell">10</div>
+        <div class="cell">11</div>
+        <div class="cell">12</div>
+        <div class="cell">13</div>
+        <div class="cell">14</div>
+        <div class="cell">15</div>
+        <div class="cell">16</div>
+        <div class="cell">17</div>
+        <div class="cell">18</div>
+        <div class="cell">19</div>
+        <div class="cell">20</div>
+        <div class="cell">21</div>
+        <div class="cell">22</div>
+        <div class="cell">23</div>
+        <div class="cell">24</div>
+        <div class="cell">25</div>
+        <div class="cell">26</div>
+        <div class="cell">27</div>
+        <div class="cell">28</div>
+        <div class="cell">29</div>
+        <div class="cell">30</div>
+        <div class="cell">31</div>
+        <div class="cell">32</div>
+        <div class="cell">33</div>
+        <div class="cell">34</div>
+        <div class="cell">35</div>
+        <div class="cell">36</div>
+        <div class="cell">37</div>
+        <div class="cell">38</div>
+        <div class="cell">39</div>
+        <div class="cell">40</div>
+        <div class="cell">41</div>
+        <div class="cell">42</div>
+        <div class="cell">43</div>
+        <div class="cell">44</div>
+        <div class="cell">45</div>
+        <div class="cell">46</div>
+        <div class="cell">47</div>
+        <div class="cell">48</div>
+        <div class="cell">49</div>
+        <div class="cell">50</div>
+        <div class="cell">51</div>
+        <div class="cell">52</div>
+        <div class="cell">53</div>
+        <div class="cell">54</div>
+        <div class="cell">55</div>
+        <div class="cell">56</div>
+        <div class="cell">57</div>
+        <div class="cell">58</div>
+        <div class="cell">59</div>
+        <div class="cell">60</div>
+        <div class="cell">61</div>
+        <div class="cell">62</div>
+        <div class="cell">63</div>
+        <div class="cell">64</div>
+        <div class="cell">65</div>
+        <div class="cell">66</div>
+        <div class="cell">67</div>
+        <div class="cell">68</div>
+        <div class="cell">69</div>
+        <div class="cell">70</div>
+        <div class="cell">71</div>
+        <div class="cell">72</div>
+        <div class="cell">73</div>
+        <div class="cell">74</div>
+        <div class="cell">75</div>
+        <div class="cell">76</div>
+        <div class="cell">77</div>
+        <div class="cell">78</div>
+        <div class="cell">79</div>
+        <div class="cell">80</div>
+        <div class="cell">81</div>
+        <div class="cell">82</div>
+        <div class="cell">83</div>
+        <div class="cell">84</div>
+        <div class="cell">85</div>
+        <div class="cell">86</div>
+        <div class="cell">87</div>
+        <div class="cell">88</div>
+        <div class="cell">89</div>
+        <div class="cell">90</div>
+        <div class="cell">91</div>
+        <div class="cell">92</div>
+        <div class="cell">93</div>
+        <div class="cell">94</div>
+        <div class="cell">95</div>
+        <div class="cell">96</div>
+        <div class="cell">97</div>
+        <div class="cell">98</div>
+        <div class="cell">99</div>
+        <div class="cell goal">100</div>
+      </div>
+    </section>
+
+    <section class="reward">
+      <div class="reward-box">
+        <div class="reward-title">100こできたら、これをもらう！</div>
+        <div class="reward-line"></div>
+      </div>
+      <div class="castle" aria-hidden="true">
+        <div class="flag"></div>
+        <div class="tower left"></div>
+        <div class="tower right"></div>
+        <div class="keep"></div>
+        <div class="door"></div>
+      </div>
+    </section>
+
+    <div class="footer" aria-hidden="true"></div>
+  </main>
+
+  <p class="print-note">印刷するときは「A4」「倍率100%」または「用紙に合わせる」で印刷してください。</p>
+</body>
+</html>
