@@ -12,10 +12,11 @@ description: 101トレーニング（workout-app）をGitHub Pagesへデプロ�
 
 2. **コミット & プッシュ**
    ```sh
-   git add index.html sw.js
+   git add index.html styles.css js sw.js   # 変更したファイルだけでよい
    git commit -m "feat: ..."   # feat: / fix: / style: プレフィックス（git log 参照）
    git push
    ```
+   - ファイルを新規追加した場合は `sw.js` の `ASSETS` 配列への登録も忘れずに（オフラインキャッシュ対象）。
 
 3. **反映確認**
    - https://kzy5296-pixel.github.io/workout-app/ を開いて確認（反映まで1〜2分かかることがある）。

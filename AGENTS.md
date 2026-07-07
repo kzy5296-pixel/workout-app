@@ -12,19 +12,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development
 
-**Preview locally:**
+**Preview locally** (`.claude/launch.json` と同じ設定。キャッシュ無効なのでPWA開発向き):
 ```sh
-python3 -m http.server 3333
+npx --yes http-server -p 3333 -c-1
 # Open http://localhost:3333
 ```
 
 **Deploy:** push to main (GitHub Pages, no CI). キャッシュ更新を含む手順は `deploy` スキル（`.claude/skills/deploy/SKILL.md`）を参照。
 
-There is no build step, no package manager, no transpilation. Edit `index.html` and `sw.js` directly.
+There is no build step, no package manager, no transpilation. Edit the HTML/CSS/JS files directly.
 
 ## Architecture
 
-The entire app is a single file (`index.html`, ~4300 lines) containing all HTML, CSS, and JavaScript. There is no framework, no bundler, and no external dependencies.
+Plain HTML/CSS/JS with no framework, no bundler, and no external dependencies. 2026-05-08 に単一ファイル（旧 index.html 約4300行）から以下に分割済み：
+
+| File | 内容 |
+|---|---|
+| `index.html` (~170行) | マークアップのみ（5画面のコンテナ） |
+| `styles.css` (~1150行) | 全スタイル |
+| `js/state.js` (~350行) | `load()`/`save()`、`BODY_PARTS`、`PHASE_ROTATION` |
+| `js/exercises.js` (~1080行) | `EXERCISES`、`VIDEO_LINKS`、`UL_DAYS`、`renderGuide()` |
+| `js/record.js` (~950行) | 記録画面、レストポーズ |
+| `js/analysis.js` (~560行) | `renderAnalysis()`、グラフ、カレンダー |
+| `js/app.js` (~840行) | `switchTab()`、ホーム・メニュー画面 |
+
+**ファイルを新規追加したら `sw.js` の `ASSETS` 配列にも登録する**（オフラインキャッシュの対象リスト）。
 
 ### Screen structure
 
@@ -83,7 +95,7 @@ Bilateral flag (`bilateral: true`) enables separate left/right weight tracking i
 ## Key conventions
 
 - **No leg exercises** — カズヤさんの希望でスキップ済み。`プロジェクト２/ai-staff/knowledge/workout_app.md` を参照。
-- When adding a new exercise, add it to `EXERCISES`, add a `VIDEO_LINKS` entry if available, and add guide card HTML inside the `renderGuide()` function block for the appropriate body part.
+- When adding a new exercise, add it to `EXERCISES`, add a `VIDEO_LINKS` entry if available, and add guide card HTML inside the `renderGuide()` function block for the appropriate body part (all three live in `js/exercises.js`).
 - When adding a new screen or major feature, follow the existing pattern: static container div → `render*()` function called from `switchTab()`.
 - Commit messages use `feat:` / `fix:` / `style:` prefixes (see git log).
 
