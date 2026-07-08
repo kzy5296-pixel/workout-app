@@ -241,7 +241,20 @@ function renderRPPanel(exIdx, si, set) {
 
 function updateSetField(exIdx, si, field, val) {
   if (!activeSession) return;
-  activeSession.exercises[exIdx].sets[si][field] = val;
+  const sets   = activeSession.exercises[exIdx].sets;
+  const oldVal = sets[si][field];
+  sets[si][field] = val;
+  // 重量はセット間で変えない運用のため、未実施かつ未編集（空 or 編集前と同じ値）の後続セットへ同じ値を引き継ぐ
+  if (field === 'weight' || field === 'weightL' || field === 'weightR') {
+    const idPrefix = field === 'weight' ? 'w' : (field === 'weightL' ? 'wL' : 'wR');
+    for (let j = si + 1; j < sets.length; j++) {
+      const cur = sets[j][field];
+      if (sets[j].done || (cur !== '' && cur != null && String(cur) !== String(oldVal ?? ''))) continue;
+      sets[j][field] = val;
+      const inp = document.getElementById(`${idPrefix}_${exIdx}_${j}`);
+      if (inp) inp.value = val;
+    }
+  }
   saveActiveSession(activeSession);
   updateLiveStats();
   if (field === 'weightL' || field === 'weightR') {
