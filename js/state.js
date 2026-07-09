@@ -157,6 +157,18 @@ function saveGymDays(d)  { save('t101_restdays', d); }
 function getLastBackup()   { return load('t101_backup_date', null); }
 function saveLastBackup(d) { save('t101_backup_date', d); }
 
+function getBodyWeightLog()   { return load('t101_bodyweight', []); }
+function saveBodyWeightLog(l) { save('t101_bodyweight', l); }
+
+// 同日の記録があれば上書き、なければ追加（date昇順を維持）
+function logBodyWeight(date, weight) {
+  const log = getBodyWeightLog();
+  const i = log.findIndex(e => e.date === date);
+  if (i >= 0) { log[i].weight = weight; }
+  else { log.push({ date, weight }); log.sort((a, b) => a.date.localeCompare(b.date)); }
+  saveBodyWeightLog(log);
+}
+
 // 最終バックアップからの経過日数。未バックアップなら null
 function daysSinceBackup() {
   const d = getLastBackup();
@@ -205,6 +217,27 @@ function getWeekEnd() {
 
 function isThisWeek(dateStr) {
   return dateStr >= getWeekStart() && dateStr <= todayStr();
+}
+
+// 連続トレーニング週数。今週がまだ未実施でも直近まで実施済みなら継続扱い
+function getWeekStreak() {
+  const history = getHistory();
+  if (history.length === 0) return 0;
+  const dates = history.map(s => s.date);
+  const weekHasTraining = (start) => {
+    const end = new Date(start); end.setDate(end.getDate() + 6);
+    const s = `${start.getFullYear()}-${pad2(start.getMonth()+1)}-${pad2(start.getDate())}`;
+    const e = `${end.getFullYear()}-${pad2(end.getMonth()+1)}-${pad2(end.getDate())}`;
+    return dates.some(d => d >= s && d <= e);
+  };
+  let cursor = new Date(getWeekStart());
+  if (!weekHasTraining(cursor)) cursor.setDate(cursor.getDate() - 7);
+  let streak = 0;
+  while (weekHasTraining(cursor)) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 7);
+  }
+  return streak;
 }
 
 // ============================================================
@@ -272,7 +305,7 @@ function getWeeklySetsPerPart() {
   getHistory().forEach(session => {
     if (!isThisWeek(session.date)) return;
     (session.exercises || []).forEach(ex => {
-      const done = (ex.sets || []).filter(s => s.done).length;
+      const done = (ex.sets || []).filter(s => s.done && !s.warmup).length;
       if (counts[ex.part] !== undefined) counts[ex.part] += done;
     });
   });
@@ -312,6 +345,27 @@ function getPrevWeight(exName, bilateral) {
   return `前回: ${prev.weight}kg × ${prev.reps}`;
 }
 
+// 種目の直近メモ（history を末尾から走査し、最初に見つかった非空メモ）
+function getPrevMemo(exName) {
+  const history = getHistory();
+  for (let i = history.length - 1; i >= 0; i--) {
+    const session = history[i];
+    const ex = (session.exercises || []).find(e => e.name === exName);
+    if (ex && ex.memo && ex.memo.trim()) {
+      return { memo: ex.memo, date: session.date };
+    }
+  }
+  return null;
+}
+
+// Epley式の推定1RM。高rep（山本式Phase3の20〜30repなど）は式が破綻するため対象外
+function estimateRM1(weight, reps) {
+  const w = parseFloat(weight), r = parseInt(reps);
+  if (!w || !r || r < 1 || r > 15) return null;
+  const rm1 = w / (1.0278 - 0.0278 * r);
+  return rm1 > 0 ? Math.round(rm1 * 10) / 10 : null;
+}
+
 function intensityBadge(intensity) {
   if (!intensity) return '';
   const t = INTENSITY_TYPES[intensity];
@@ -335,7 +389,7 @@ function rebuildPRs() {
   const prs = {};
   getHistory().forEach(session => {
     (session.exercises || []).forEach(ex => {
-      (ex.sets || []).filter(s => s.done).forEach(s => {
+      (ex.sets || []).filter(s => s.done && !s.warmup).forEach(s => {
         const update = (weight, reps) => {
           if (!weight || !reps) return;
           const w = parseFloat(weight), r = parseInt(reps);

@@ -26,5 +26,19 @@
       "sizes": "180x180",
       "type": "image/png"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "記録を始める",
+      "short_name": "記録",
+      "url": "./?tab=record",
+      "icons": [{ "src": "icon-192-v2.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "分析を見る",
+      "short_name": "分析",
+      "url": "./?tab=analysis",
+      "icons": [{ "src": "icon-192-v2.png", "sizes": "192x192", "type": "image/png" }]
+    }
   ]
 }

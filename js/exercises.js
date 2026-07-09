@@ -410,6 +410,45 @@ function buildExercises(parts) {
   return list;
 }
 
+// 時短メニュー：各部位1種目・2セットだけに絞った軽量版
+function buildQuickExercises(parts) {
+  const list      = [];
+  const intensity = INTENSITY_TYPES[selectedIntensity];
+
+  parts.forEach(part => {
+    const ex = _filterByRpe(EXERCISES[part])[0];
+    if (!ex) return;
+    const prev      = getPrevData(ex.name, ex.bilateral);
+    const r         = ex.rec || intensity.recReps;
+    const bilateral = !!ex.bilateral;
+
+    let w = '';
+    if (prev) {
+      const wRef = bilateral ? (prev.weightL || prev.weight || 0) : (prev.weight || 0);
+      if (wRef > 0) {
+        const rm1  = Math.round(wRef / (1.0278 - 0.0278 * (prev.repsL || prev.reps || 8)));
+        const calc = Math.round(rm1 * intensity.pct / 2.5) * 2.5;
+        w = calc > 0 ? calc : wRef;
+      }
+    }
+
+    const makeSet = () => bilateral
+      ? { id: Math.random().toString(36).slice(2), weightL: w, repsL: r, weightR: w, repsR: r, done: false }
+      : { id: Math.random().toString(36).slice(2), weight: w, reps: r, done: false };
+
+    list.push({
+      id:        Math.random().toString(36).slice(2),
+      name:      ex.name,
+      part:      part,
+      recReps:   r,
+      intensity: selectedIntensity,
+      bilateral,
+      sets: Array.from({ length: 2 }, makeSet)
+    });
+  });
+  return list;
+}
+
 // ============================================================
 //  EXERCISE GUIDE DATA
 // ============================================================

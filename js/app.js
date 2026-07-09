@@ -142,6 +142,7 @@ function renderHome() {
     </div>` : '';
 
   const totalSessions = history.length;
+  const weekStreak = getWeekStreak();
   const weekVol = history.filter(s => isThisWeek(s.date))
     .reduce((sum, s) => sum + calcSessionVolume(s), 0);
   const weekDays = [...new Set(history.filter(s => isThisWeek(s.date)).map(s => s.date))].length;
@@ -190,6 +191,10 @@ function renderHome() {
           <div class="hero-stat-val">${totalSessions}</div>
           <div class="hero-stat-label">総回数</div>
         </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val">${weekStreak}${weekStreak > 0 ? '🔥' : ''}</div>
+          <div class="hero-stat-label">連続週</div>
+        </div>
       </div>
     </div>
     ${activeWarnHTML}
@@ -198,9 +203,12 @@ function renderHome() {
     <div class="card">
       <div class="card-title">🎯 今日のおすすめ</div>
       ${todayRecs}
-      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #222;">
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #222;display:flex;flex-direction:column;gap:8px;">
         <button class="btn btn-outline btn-sm" style="width:100%;color:#666;border-color:#2a2a2a;" onclick="switchTab('menu')">
           📋 メニューから自由に選ぶ
+        </button>
+        <button class="btn btn-outline btn-sm" style="width:100%;color:#e8ff00;border-color:#e8ff0040;" onclick="startQuickWorkout()">
+          ⏱ 時短メニュー（30分・3部位）で始める
         </button>
       </div>
     </div>
@@ -218,6 +226,35 @@ function renderHome() {
       ⚙️ 設定 / データのバックアップ
     </button>
     ${backupInfoHTML}`;
+}
+
+// 時短メニュー：直近で最も間隔が空いている部位3つ×各1種目2セットで即開始
+function startQuickWorkout() {
+  const history = getHistory();
+  const today   = todayStr();
+  const parts = Object.keys(BODY_PARTS).map(part => {
+    const lastSession = history.slice().reverse().find(s =>
+      (s.exercises || []).some(e => e.part === part && (e.sets || []).some(set => set.done)));
+    const daysSince = lastSession
+      ? Math.floor((new Date(today) - new Date(lastSession.date)) / 86400000)
+      : 999;
+    return { part, daysSince };
+  }).sort((a, b) => b.daysSince - a.daysSince).slice(0, 3).map(p => p.part);
+
+  const rec = getRecommendedPhase(parts);
+  selectedIntensity = rec.key;
+  const t = INTENSITY_TYPES[rec.key];
+  activeSession = {
+    id:        Date.now().toString(),
+    name:      `⏱ 時短メニュー（30分）— ${parts.map(p => BODY_PARTS[p].label).join('+')}`,
+    date:      today,
+    startTime: Date.now(),
+    intensity: rec.key,
+    exercises: buildQuickExercises(parts)
+  };
+  saveActiveSession(activeSession);
+  showToast(`⏱ ${t.emoji} 時短メニューを開始しました`);
+  switchTab('record');
 }
 
 function resumeSession() {
@@ -841,4 +878,9 @@ initDefaultPRs();
 if (navigator.storage && navigator.storage.persist) {
   navigator.storage.persist().catch(() => {});
 }
-renderHome();
+const _startTab = new URLSearchParams(location.search).get('tab');
+if (_startTab && document.getElementById('screen-' + _startTab)) {
+  switchTab(_startTab);
+} else {
+  renderHome();
+}

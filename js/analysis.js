@@ -219,11 +219,149 @@ function drawExerciseProgressChart() {
   });
 }
 
+function drawBodyWeightChart() {
+  const canvas = document.getElementById('bodyWeightChart');
+  if (!canvas) return;
+
+  const data = getBodyWeightLog().slice(-30);
+
+  const W = canvas.parentElement.clientWidth;
+  const H = 180;
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  if (data.length === 0) return;
+
+  const values = data.map(d => d.weight);
+  let minV = Math.min(...values);
+  let maxV = Math.max(...values);
+  if (minV === maxV) { minV -= 1; maxV += 1; }
+  const span = maxV - minV;
+  minV -= span * 0.2;
+  maxV += span * 0.2;
+
+  const padL = 40, padR = 14, padT = 18, padB = 30;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const xAt = i => padL + (data.length === 1 ? chartW / 2 : chartW * i / (data.length - 1));
+  const yAt = v => padT + chartH * (1 - (v - minV) / (maxV - minV));
+
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth   = 1;
+  for (let i = 0; i <= 4; i++) {
+    const v = minV + (maxV - minV) * i / 4;
+    const y = yAt(v);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
+    ctx.fillStyle  = '#555';
+    ctx.font       = '10px system-ui';
+    ctx.textAlign  = 'right';
+    ctx.fillText(`${Math.round(v * 10) / 10}`, padL - 5, y + 3);
+  }
+
+  ctx.strokeStyle = '#4fc3f7';
+  ctx.lineWidth   = 2;
+  ctx.beginPath();
+  data.forEach((d, i) => {
+    if (i === 0) ctx.moveTo(xAt(i), yAt(d.weight));
+    else ctx.lineTo(xAt(i), yAt(d.weight));
+  });
+  ctx.stroke();
+  data.forEach((d, i) => {
+    ctx.fillStyle = '#4fc3f7';
+    ctx.beginPath();
+    ctx.arc(xAt(i), yAt(d.weight), 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  const step = Math.ceil(data.length / 6);
+  ctx.fillStyle = '#555';
+  ctx.font      = '10px system-ui';
+  ctx.textAlign = 'center';
+  data.forEach((d, i) => {
+    if (i % step !== 0 && i !== data.length - 1) return;
+    const dt = new Date(d.date + 'T12:00:00');
+    ctx.fillText(`${dt.getMonth() + 1}/${dt.getDate()}`, xAt(i), H - padB + 16);
+  });
+}
+
+// 週×部位のボリュームマトリクス（直近8週）
+function getWeeklyVolumeByPart(history, weeksCount) {
+  const weeks = [];
+  for (let i = weeksCount - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - d.getDay() - i * 7);
+    const start = `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+    const endD  = new Date(d); endD.setDate(endD.getDate() + 6);
+    const end   = `${endD.getFullYear()}-${pad2(endD.getMonth()+1)}-${pad2(endD.getDate())}`;
+    const label = `${d.getMonth()+1}/${d.getDate()}`;
+    const byPart = {};
+    Object.keys(BODY_PARTS).forEach(p => byPart[p] = 0);
+    history.filter(s => s.date >= start && s.date <= end).forEach(s => {
+      (s.exercises || []).forEach(ex => {
+        const vol = (ex.sets || []).reduce((sum, st) => sum + setVolume(st, ex.bilateral), 0);
+        if (byPart[ex.part] !== undefined) byPart[ex.part] += vol;
+      });
+    });
+    weeks.push({ label, byPart });
+  }
+  return weeks;
+}
+
+function renderVolumeHeatmap(history) {
+  const weeks = getWeeklyVolumeByPart(history, 8);
+  const parts = Object.keys(BODY_PARTS);
+  const maxVol = Math.max(1, ...weeks.flatMap(w => parts.map(p => w.byPart[p])));
+  const cols = `44px repeat(${weeks.length},1fr)`;
+  const headerRow = `<div style="display:grid;grid-template-columns:${cols};gap:3px;margin-bottom:3px;">
+    <div></div>
+    ${weeks.map(w => `<div style="font-size:9px;color:#555;text-align:center;">${w.label}</div>`).join('')}
+  </div>`;
+  const rows = parts.map(p => {
+    const cells = weeks.map(w => {
+      const vol   = w.byPart[p];
+      const alpha = vol > 0 ? Math.max(0.15, vol / maxVol) : 0;
+      const bg    = vol > 0 ? `background:rgba(232,255,0,${alpha.toFixed(2)});` : 'background:#1c1c1c;';
+      const textColor = alpha > 0.55 ? '#0f0f0f' : '#888';
+      return `<div title="${BODY_PARTS[p].label} ${w.label}: ${Math.round(vol)}kg"
+        style="${bg}border-radius:4px;min-height:26px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:${textColor};">${vol > 0 ? Math.round(vol) : ''}</div>`;
+    }).join('');
+    return `<div style="display:grid;grid-template-columns:${cols};gap:3px;margin-bottom:3px;align-items:center;">
+      <div style="font-size:11px;color:#aaa;font-weight:600;">${BODY_PARTS[p].label}</div>
+      ${cells}
+    </div>`;
+  }).join('');
+  return headerRow + rows;
+}
+
+// セット完了時刻の間隔から実休憩時間を算出（15分超は外れ値として除外）
+function getAvgRestSeconds(session) {
+  const timestamps = [];
+  (session.exercises || []).forEach(ex => {
+    (ex.sets || []).forEach(s => { if (s.completedAt) timestamps.push(s.completedAt); });
+  });
+  timestamps.sort((a, b) => a - b);
+  const gaps = [];
+  for (let i = 1; i < timestamps.length; i++) {
+    const gapSec = (timestamps[i] - timestamps[i - 1]) / 1000;
+    if (gapSec > 0 && gapSec <= 900) gaps.push(gapSec);
+  }
+  if (gaps.length === 0) return null;
+  return Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length);
+}
+
+function formatRestLabel(sec) {
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return m > 0 ? `${m}分${s}秒` : `${s}秒`;
+}
+
 function renderAnalysis() {
-  const el      = document.getElementById('screen-analysis');
-  const history = getHistory();
-  const weekly  = getWeeklySetsPerPart();
-  const prs     = getPRs();
+  const el       = document.getElementById('screen-analysis');
+  const history  = getHistory();
+  const weekly   = getWeeklySetsPerPart();
+  const prs      = getPRs();
+  const bodyWeightLog = getBodyWeightLog();
 
   const trainedExs = listTrainedExercises();
   if (!progressExName || !trainedExs.includes(progressExName)) {
@@ -254,13 +392,13 @@ function renderAnalysis() {
       </div>`;
   }).join('');
 
-  const prEntries = Object.entries(prs);
+  const prEntries = Object.entries(prs).sort((a, b) => (b[1].date || '').localeCompare(a[1].date || ''));
   let prHTML = '';
   if (prEntries.length === 0) {
     prHTML = '<div class="empty-state"><div class="es-icon">🏆</div><div>まだPRがありません</div></div>';
   } else {
-    prHTML = prEntries.slice(-20).reverse().map(([name, pr]) =>
-      `<div class="pr-item">
+    const prListHTML = prEntries.map(([name, pr]) =>
+      `<div class="pr-item" data-pr-name="${name.toLowerCase()}">
         <div>
           <div class="pr-name">${name}</div>
           <div style="font-size:12px;color:#666;">${pr.date}</div>
@@ -268,6 +406,11 @@ function renderAnalysis() {
         <div class="pr-val">${pr.weight}kg × ${pr.reps}</div>
       </div>`
     ).join('');
+    prHTML = `
+      <input type="text" id="prSearchInput" placeholder="🔍 種目名で検索" oninput="filterPRList(this.value)"
+        style="width:100%;background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:10px;padding:11px 12px;font-size:14px;margin-bottom:10px;-webkit-appearance:none;appearance:none;box-sizing:border-box;">
+      <div style="font-size:12px;color:#666;margin-bottom:8px;">全${prEntries.length}件</div>
+      <div id="prListWrap">${prListHTML}</div>`;
   }
 
   const recent10 = history.slice(-10).reverse();
@@ -279,6 +422,8 @@ function renderAnalysis() {
       const vol   = calcSessionVolume(s);
       const parts = [...new Set((s.exercises||[]).map(e => BODY_PARTS[e.part]?.label).filter(Boolean))].join('・');
       const sets  = (s.exercises||[]).reduce((acc, ex) => acc + ex.sets.filter(st => st.done).length, 0);
+      const avgRest   = getAvgRestSeconds(s);
+      const restLabel = avgRest ? ` ／ 平均休憩 ${formatRestLabel(avgRest)}` : '';
       return `
         <div class="session-hist-item" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
           <div style="flex:1;min-width:0;">
@@ -287,7 +432,7 @@ function renderAnalysis() {
               <span class="sh-title" style="margin:0;">${s.name}</span>
               ${intensityBadge(s.intensity)}
             </div>
-            <div class="sh-meta">${parts} ／ ${sets}セット ／ ${vol.toLocaleString()}kg</div>
+            <div class="sh-meta">${parts} ／ ${sets}セット ／ ${vol.toLocaleString()}kg${restLabel}</div>
           </div>
           <button class="btn-icon btn" style="background:#2a1a1a;color:#ff6666;flex-shrink:0;" onclick="deleteSession('${s.id}')" title="削除">🗑</button>
         </div>`;
@@ -344,6 +489,11 @@ function renderAnalysis() {
       </div>
     </div>
     <div class="card">
+      <div class="card-title">🔥 部位別ボリュームヒートマップ（過去8週）</div>
+      <div style="font-size:11px;color:#888;margin-bottom:10px;">色が濃いほど、その週にその部位を追い込んでいます</div>
+      ${renderVolumeHeatmap(history)}
+    </div>
+    <div class="card">
       <div class="card-title">📊 種目別 重量推移（直近12回）</div>
       ${trainedExs.length === 0
         ? '<div class="empty-state"><div class="es-icon">📊</div><div>記録が増えると種目ごとの重量推移が見られます</div></div>'
@@ -358,6 +508,13 @@ function renderAnalysis() {
       </div>
       <div id="exProgressLegend" class="cal-legend" style="margin-top:8px;"></div>`}
     </div>
+    ${bodyWeightLog.length > 0 ? `
+    <div class="card">
+      <div class="card-title">⚖️ 体重推移（直近30件）</div>
+      <div class="chart-wrap">
+        <canvas id="bodyWeightChart"></canvas>
+      </div>
+    </div>` : ''}
     <div class="card">
       <div class="card-title">🔄 マンデルブロ Phase ローテーション（部位別・直近6回）</div>
       <div style="font-size:11px;color:#888;margin-bottom:10px;line-height:1.6;">
@@ -388,8 +545,16 @@ function renderAnalysis() {
     drawWeeklyChart(weekly);
     drawVolumeTrendChart(history);
     drawExerciseProgressChart();
+    drawBodyWeightChart();
     renderPhaseRotation(history);
     renderCalendar();
+  });
+}
+
+function filterPRList(q) {
+  const query = q.trim().toLowerCase();
+  document.querySelectorAll('#prListWrap .pr-item').forEach(el => {
+    el.style.display = el.dataset.prName.includes(query) ? '' : 'none';
   });
 }
 

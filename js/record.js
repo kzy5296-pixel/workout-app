@@ -30,6 +30,7 @@ function renderRecord() {
 
   const exCardsHTML = activeSession.exercises.map((ex, exIdx) => {
     const prev     = getPrevWeight(ex.name, ex.bilateral);
+    const prevMemo = getPrevMemo(ex.name);
     const setsHTML = ex.sets.map((set, si) => renderSetRow(exIdx, si, set, ex.bilateral)).join('');
 
     let phaseHintHTML = '';
@@ -75,6 +76,10 @@ function renderRecord() {
         ${restPauseHTML}
         ${phaseHintHTML}
         ${prev ? `<div class="prev-weight">${prev}</div>` : ''}
+        ${prevMemo ? `<div style="font-size:11px;color:#ffb84d;background:#ffa72610;border:1px solid #ffa72630;border-radius:6px;padding:4px 8px;margin-bottom:6px;">📝 前回メモ(${prevMemo.date.slice(5).replace('-','/')}): ${prevMemo.memo}</div>` : ''}
+        <input type="text" class="ex-memo-input" placeholder="📝 メモ（例: 肩に違和感）"
+          value="${ex.memo || ''}" oninput="updateExerciseMemo(${exIdx},this.value)"
+          style="width:100%;background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:8px;box-sizing:border-box;-webkit-appearance:none;appearance:none;">
         <div id="setsContainer_${exIdx}">${setsHTML}</div>
         <button class="add-set-btn" onclick="addSet(${exIdx})">＋ セット追加</button>
       </div>`;
@@ -99,6 +104,13 @@ function renderRecord() {
                  border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;
                  cursor:pointer;min-height:40px;">
           🔥 ジャイアントセット ${activeSession.giantSetMode ? 'ON（部位別・周ごと表示中）' : 'OFF'}
+        </button>
+        <button onclick="openPlateModal()"
+          style="margin-top:8px;margin-left:8px;display:inline-flex;align-items:center;gap:6px;
+                 background:#2a2a2a;color:#aaa;border:1px solid #444;
+                 border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;
+                 cursor:pointer;min-height:40px;">
+          🔢 プレート計算機
         </button>
       </div>
     </div>
@@ -188,9 +200,13 @@ function renderSetRow(exIdx, si, set, bilateral) {
   const rpActive = !!set.restPause;
   const rpPanel  = rpActive ? renderRPPanel(exIdx, si, set) : '';
   const stepLabel = set.note ? `<span style="font-size:10px;color:#ff6b6b;font-weight:800;min-width:18px;">${set.note}</span>` : '';
+  const warmupActive = !!set.warmup;
+  const rm1 = estimateRM1(set.weight, set.reps);
+  const rm1HTML = `<div id="rm1_${exIdx}_${si}" style="font-size:10px;color:#888;padding:2px 8px 4px 44px;">${rm1 ? `推定1RM ${rm1}kg` : ''}</div>`;
+  const rirHTML = renderRIRRow(exIdx, si, set);
   return `
     <div class="set-row-wrap" id="setWrap_${exIdx}_${si}" style="margin-bottom:8px;">
-      <div class="set-row ${rowClass}" id="setRow_${exIdx}_${si}" style="margin-bottom:0;">
+      <div class="set-row ${rowClass} ${warmupActive ? 'warmup' : ''}" id="setRow_${exIdx}_${si}" style="margin-bottom:0;">
         <div class="set-num">${set.note ? '' : `Set${si+1}`}</div>
         ${stepLabel}
         <input type="number" class="weight-input"
@@ -202,14 +218,54 @@ function renderSetRow(exIdx, si, set, bilateral) {
           id="r_${exIdx}_${si}"
           value="${set.reps || ''}" placeholder="rep" min="0"
           oninput="updateSetField(${exIdx},${si},'reps',this.value)" ${rpActive ? 'readonly style="opacity:0.6;"' : ''}>
+        <button class="rp-toggle-btn ${warmupActive ? 'active' : ''}" style="${warmupActive ? 'background:#4fc3f722;border-color:#4fc3f7;color:#4fc3f7;box-shadow:0 0 8px #4fc3f755;' : ''}"
+          title="ウォームアップ（集計から除外）"
+          onclick="toggleWarmup(${exIdx},${si})">W</button>
         <button class="rp-toggle-btn ${rpActive ? 'active' : ''}"
           title="レストポーズ法（Phase 2推奨）"
           onclick="toggleRestPause(${exIdx},${si})">⚡</button>
         <button class="set-done-btn ${doneClass}" id="doneBtn_${exIdx}_${si}"
           onclick="toggleSetDone(${exIdx},${si})">✓</button>
       </div>
+      ${rm1HTML}
+      ${rirHTML}
       ${rpPanel}
     </div>`;
+}
+
+// RIR（あと何回いけたか）選択行。完了済み・非ウォームアップのセットのみ表示。
+// id="rir_..." のラッパーは常に存在させ、中身だけ出し分ける（toggleSetDoneが行全体を再描画しないため）
+function renderRIRRow(exIdx, si, set) {
+  if (!set.done || set.warmup) return `<div id="rir_${exIdx}_${si}"></div>`;
+  const opts = [{ val: 0, label: '0' }, { val: 1, label: '1' }, { val: 2, label: '2+' }];
+  const btns = opts.map(o => {
+    const active = set.rir === o.val;
+    return `<button class="rp-toggle-btn ${active ? 'active' : ''}" style="width:auto;min-width:32px;border-radius:6px;padding:0 8px;${active ? 'background:#4caf5022;border-color:#4caf50;color:#4caf50;box-shadow:0 0 8px #4caf5055;' : ''}"
+      onclick="setRIR(${exIdx},${si},${o.val})">${o.label}</button>`;
+  }).join('');
+  return `<div id="rir_${exIdx}_${si}" style="display:flex;align-items:center;gap:6px;padding:2px 8px 4px 44px;">
+    <span style="font-size:10px;color:#888;">RIR（あと何回）:</span>${btns}
+  </div>`;
+}
+
+function setRIR(exIdx, si, val) {
+  if (!activeSession) return;
+  const set = activeSession.exercises[exIdx].sets[si];
+  set.rir = set.rir === val ? undefined : val;
+  saveActiveSession(activeSession);
+  const el = document.getElementById(`rir_${exIdx}_${si}`);
+  if (el) el.outerHTML = renderRIRRow(exIdx, si, set);
+}
+
+function toggleWarmup(exIdx, si) {
+  if (!activeSession) return;
+  const set = activeSession.exercises[exIdx].sets[si];
+  set.warmup = !set.warmup;
+  saveActiveSession(activeSession);
+  const wrap = document.getElementById('setWrap_' + exIdx + '_' + si);
+  const ex   = activeSession.exercises[exIdx];
+  if (wrap) wrap.outerHTML = renderSetRow(exIdx, si, set, ex.bilateral);
+  updateLiveStats();
 }
 
 function renderRPPanel(exIdx, si, set) {
@@ -257,6 +313,14 @@ function updateSetField(exIdx, si, field, val) {
   }
   saveActiveSession(activeSession);
   updateLiveStats();
+  if (field === 'weight' || field === 'reps') {
+    const s = sets[si];
+    const rm1El = document.getElementById(`rm1_${exIdx}_${si}`);
+    if (rm1El) {
+      const rm1 = estimateRM1(s.weight, s.reps);
+      rm1El.textContent = rm1 ? `推定1RM ${rm1}kg` : '';
+    }
+  }
   if (field === 'weightL' || field === 'weightR') {
     const ex  = activeSession.exercises[exIdx];
     if (ex && ex.bilateral) {
@@ -605,6 +669,7 @@ function toggleSetDone(exIdx, si) {
   const btn = document.getElementById('doneBtn_' + exIdx + '_' + si);
 
   if (set.done) {
+    set.completedAt = Date.now();
     row.classList.add('completed');
     btn.classList.add('done');
 
@@ -612,7 +677,7 @@ function toggleSetDone(exIdx, si) {
     const prs = getPRs();
     const w   = ex.bilateral ? parseFloat(set.weightL) : parseFloat(set.weight);
     const r   = ex.bilateral ? parseInt(set.repsL)    : parseInt(set.reps);
-    if (w && r) {
+    if (w && r && !set.warmup) {
       const vol = w * r;
       if (!prs[ex.name] || vol > prs[ex.name].volume) {
         showPRToast(ex.name, w, r);
@@ -626,11 +691,14 @@ function toggleSetDone(exIdx, si) {
       startTimer(`ジャイアントセット ${si + 1}周目`);
     }
   } else {
+    delete set.completedAt;
     row.classList.remove('completed');
     btn.classList.remove('done');
   }
 
   saveActiveSession(activeSession);
+  const rirEl = document.getElementById(`rir_${exIdx}_${si}`);
+  if (rirEl) rirEl.outerHTML = renderRIRRow(exIdx, si, set);
   updateLiveStats();
   if (activeSession.giantSetMode) updateGiantHighlight();
 
@@ -670,8 +738,14 @@ function removeExercise(exIdx) {
   renderRecord();
 }
 
+function updateExerciseMemo(exIdx, val) {
+  if (!activeSession) return;
+  activeSession.exercises[exIdx].memo = val;
+  saveActiveSession(activeSession);
+}
+
 function setVolume(s, bilateral) {
-  if (!s.done) return 0;
+  if (!s.done || s.warmup) return 0;
   if (bilateral) {
     let v = 0;
     if (s.weightL && s.repsL) v += parseFloat(s.weightL) * parseInt(s.repsL);
@@ -701,7 +775,7 @@ function calcLivePartSets() {
   if (!activeSession) return counts;
   activeSession.exercises.forEach(ex => {
     if (counts[ex.part] !== undefined)
-      counts[ex.part] += ex.sets.filter(s => s.done).length;
+      counts[ex.part] += ex.sets.filter(s => s.done && !s.warmup).length;
   });
   return counts;
 }
@@ -731,7 +805,7 @@ function completeWorkout() {
     }
   };
   activeSession.exercises.forEach(ex => {
-    ex.sets.filter(s => s.done).forEach(s => {
+    ex.sets.filter(s => s.done && !s.warmup).forEach(s => {
       if (ex.bilateral) {
         tryPR(ex.name, s.weightL, s.repsL);
         tryPR(ex.name, s.weightR, s.repsR);
@@ -761,6 +835,62 @@ async function abandonSession() {
 }
 
 // ============================================================
+//  PLATE CALCULATOR（20kgバー前提・バーベル種目専用）
+// ============================================================
+
+const PLATE_BAR_KG  = 20;
+const PLATE_SIZES   = [20, 15, 10, 5, 2.5, 1.25, 0.5];
+
+function calcPlateBreakdown(targetWeight) {
+  const target = parseFloat(targetWeight) || 0;
+  if (target <= 0) return { perSide: [], remaining: 0, valid: false };
+  if (target <= PLATE_BAR_KG) return { perSide: [], remaining: 0, valid: true };
+  let remaining = (target - PLATE_BAR_KG) / 2;
+  const perSide = [];
+  PLATE_SIZES.forEach(p => {
+    while (remaining + 1e-9 >= p) {
+      perSide.push(p);
+      remaining -= p;
+    }
+  });
+  return { perSide, remaining: Math.round(remaining * 100) / 100, valid: true };
+}
+
+function openPlateModal() {
+  document.getElementById('plateModal').classList.add('active');
+  updatePlateCalc();
+}
+
+function closePlateModal(e) {
+  if (e && e.target !== document.getElementById('plateModal')) return;
+  document.getElementById('plateModal').classList.remove('active');
+}
+
+function updatePlateCalc() {
+  const val    = document.getElementById('plateTargetInput').value;
+  const result = calcPlateBreakdown(val);
+  const out    = document.getElementById('plateResult');
+  if (!result.valid) {
+    out.innerHTML = '<div style="color:#666;font-size:13px;">合計重量を入力してください</div>';
+    return;
+  }
+  if (result.perSide.length === 0) {
+    out.innerHTML = `<div style="color:#888;font-size:13px;">バー（${PLATE_BAR_KG}kg）のみ、または重量不足です</div>`;
+    return;
+  }
+  const chips = result.perSide.map(p =>
+    `<span style="display:inline-block;background:#2a2a2a;border:1px solid #444;border-radius:6px;padding:4px 10px;margin:2px;font-size:13px;font-weight:700;color:#e8ff00;">${p}kg</span>`
+  ).join('');
+  const warn = result.remaining > 0
+    ? `<div style="color:#ff8a65;font-size:11px;margin-top:8px;">※ ${result.remaining}kg分は手持ちプレートの組み合わせでは再現できません</div>`
+    : '';
+  out.innerHTML = `
+    <div style="font-size:12px;color:#888;margin-bottom:6px;">片側に乗せるプレート（バー${PLATE_BAR_KG}kg含む総重量から算出）</div>
+    <div>${chips}</div>
+    ${warn}`;
+}
+
+// ============================================================
 //  SETTINGS MODAL
 // ============================================================
 
@@ -775,7 +905,20 @@ function openSettingsModal() {
   if (bn) bn.value = big3.bench    || '';
   if (dl) dl.value = big3.deadlift || '';
   if (sd) sd.value = start         || '';
+  const bw = document.getElementById('bodyweight-input');
+  if (bw) {
+    const log = getBodyWeightLog();
+    const todayEntry = log.find(e => e.date === todayStr());
+    bw.value = todayEntry ? todayEntry.weight : '';
+  }
   document.getElementById('settingsModal').classList.add('active');
+}
+
+function saveBodyWeightToday() {
+  const val = parseFloat(document.getElementById('bodyweight-input').value);
+  if (!val || val <= 0) { showToast('体重を入力してください'); return; }
+  logBodyWeight(todayStr(), val);
+  showToast('✓ 体重を保存しました');
 }
 
 function saveBIG3Settings() {
@@ -807,7 +950,8 @@ function exportData() {
     gymDays:    getGymDays(),
     session:    getActiveSession(),
     big3:       getBIG3(),
-    progStart:  getProgStart()
+    progStart:  getProgStart(),
+    bodyWeight: getBodyWeightLog()
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -822,6 +966,47 @@ function exportData() {
   saveLastBackup(todayStr());
   showToast('✓ エクスポート完了');
   if (currentTab === 'home') renderHome();
+}
+
+function exportDataCSV() {
+  const history = getHistory();
+  const rows = [['date','session_name','intensity','exercise','part','set_no','warmup','weight','reps','weightL','repsL','weightR','repsR','volume_kg']];
+  history.forEach(s => {
+    (s.exercises || []).forEach(ex => {
+      (ex.sets || []).forEach((set, i) => {
+        if (!set.done) return;
+        const vol = setVolume(set, ex.bilateral);
+        rows.push([
+          s.date, s.name || '', s.intensity || '',
+          ex.name, BODY_PARTS[ex.part] ? BODY_PARTS[ex.part].label : ex.part,
+          i + 1, set.warmup ? '1' : '0',
+          ex.bilateral ? '' : (set.weight || ''),
+          ex.bilateral ? '' : (set.reps || ''),
+          ex.bilateral ? (set.weightL || '') : '',
+          ex.bilateral ? (set.repsL || '') : '',
+          ex.bilateral ? (set.weightR || '') : '',
+          ex.bilateral ? (set.repsR || '') : '',
+          Math.round(vol)
+        ]);
+      });
+    });
+  });
+  const esc = v => {
+    const s = String(v ?? '');
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv  = rows.map(r => r.map(esc).join(',')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const d    = new Date();
+  a.href     = url;
+  a.download = `101training_${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('✓ CSVエクスポート完了');
 }
 
 function importData(event) {
@@ -839,6 +1024,7 @@ function importData(event) {
       if (data.session) saveActiveSession(data.session);
       if (data.big3 && typeof data.big3 === 'object') saveBIG3(data.big3);
       if (data.progStart) saveProgStart(data.progStart);
+      if (Array.isArray(data.bodyWeight)) saveBodyWeightLog(data.bodyWeight);
       activeSession = getActiveSession();
       showToast('✓ インポート完了');
       closeSettingsModal();
@@ -895,6 +1081,7 @@ async function clearAllData() {
   localStorage.removeItem('t101_big3');
   localStorage.removeItem('t101_prog_start');
   localStorage.removeItem('t101_backup_date');
+  localStorage.removeItem('t101_bodyweight');
   activeSession = null;
   showToast('✓ データを削除しました');
   closeSettingsModal();
