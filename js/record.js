@@ -31,6 +31,10 @@ function renderRecord() {
   const exCardsHTML = activeSession.exercises.map((ex, exIdx) => {
     const prev     = getPrevWeight(ex.name, ex.bilateral);
     const prevMemo = getPrevMemo(ex.name);
+    const rirAdvice = getRIRAdvice(ex.name);
+    const rirAdviceHTML = rirAdvice
+      ? `<div style="font-size:11px;color:${rirAdvice.startsWith('💪') ? '#4caf50' : '#ffb84d'};background:${rirAdvice.startsWith('💪') ? '#4caf5010' : '#ffa72610'};border:1px solid ${rirAdvice.startsWith('💪') ? '#4caf5030' : '#ffa72630'};border-radius:6px;padding:4px 8px;margin-bottom:6px;">${rirAdvice}</div>`
+      : '';
     const setsHTML = ex.sets.map((set, si) => renderSetRow(exIdx, si, set, ex.bilateral)).join('');
 
     let phaseHintHTML = '';
@@ -77,6 +81,7 @@ function renderRecord() {
         ${phaseHintHTML}
         ${prev ? `<div class="prev-weight">${prev}</div>` : ''}
         ${prevMemo ? `<div style="font-size:11px;color:#ffb84d;background:#ffa72610;border:1px solid #ffa72630;border-radius:6px;padding:4px 8px;margin-bottom:6px;">📝 前回メモ(${prevMemo.date.slice(5).replace('-','/')}): ${prevMemo.memo}</div>` : ''}
+        ${rirAdviceHTML}
         <input type="text" class="ex-memo-input" id="memoInput_${exIdx}" placeholder="📝 メモ（例: 肩に違和感）"
           value="${ex.memo || ''}" oninput="updateExerciseMemo(${exIdx},this.value)"
           style="width:100%;background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:6px;box-sizing:border-box;-webkit-appearance:none;appearance:none;">
@@ -948,7 +953,46 @@ function openSettingsModal() {
     const todayEntry = log.find(e => e.date === todayStr());
     bw.value = todayEntry ? todayEntry.weight : '';
   }
+  renderSnapshotList();
   document.getElementById('settingsModal').classList.add('active');
+}
+
+// スナップショット一覧（新しい順）。インポート・全削除時に自動保存される
+function renderSnapshotList() {
+  const el = document.getElementById('snapshotList');
+  if (!el) return;
+  const snapshots = getSnapshots();
+  if (snapshots.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:#666;">まだありません（インポートまたは全削除時に自動保存されます）</div>';
+    return;
+  }
+  el.innerHTML = snapshots.slice().reverse().map((snap, revIdx) => {
+    const idx = snapshots.length - 1 - revIdx;
+    const d = new Date(snap.savedAt);
+    const label = `${d.getFullYear()}/${pad2(d.getMonth()+1)}/${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    const count = (snap.data.history || []).length;
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #222;">
+        <div style="font-size:12px;color:#aaa;">${label} ／ ${count}件</div>
+        <button class="btn btn-outline btn-sm" style="width:auto;padding:6px 12px;" onclick="restoreSnapshot(${idx})">復元</button>
+      </div>`;
+  }).join('');
+}
+
+async function restoreSnapshot(idx) {
+  const snapshots = getSnapshots();
+  const snap = snapshots[idx];
+  if (!snap) return;
+  if (!await showConfirm('現在のデータをこの時点に戻します。よろしいですか？', '復元', true)) return;
+  const d = snap.data;
+  if (Array.isArray(d.history))  saveHistory(d.history);
+  if (d.prs && typeof d.prs === 'object') savePRs(d.prs);
+  if (Array.isArray(d.gymDays))  saveGymDays(d.gymDays);
+  saveActiveSession(d.session || null);
+  if (d.big3 && typeof d.big3 === 'object') saveBIG3(d.big3);
+  if (d.progStart) saveProgStart(d.progStart);
+  if (Array.isArray(d.bodyWeight)) saveBodyWeightLog(d.bodyWeight);
+  location.reload();
 }
 
 function saveBodyWeightToday() {
@@ -988,7 +1032,8 @@ async function exportData() {
     session:    getActiveSession(),
     big3:       getBIG3(),
     progStart:  getProgStart(),
-    bodyWeight: getBodyWeightLog()
+    bodyWeight: getBodyWeightLog(),
+    deloadDismissed: getDeloadDismissed()
   };
   const d        = new Date();
   const filename = `101training_backup_${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}.json`;
@@ -1075,6 +1120,7 @@ function importData(event) {
       const data = JSON.parse(e.target.result);
       if (!data || typeof data !== 'object') throw new Error('invalid');
       if (!await showConfirm('現在のデータを上書きします。よろしいですか？', '上書き', true)) return;
+      takeSnapshot();
       if (Array.isArray(data.history))  saveHistory(data.history);
       if (data.prs && typeof data.prs === 'object') savePRs(data.prs);
       if (Array.isArray(data.gymDays))  saveGymDays(data.gymDays);
@@ -1082,6 +1128,7 @@ function importData(event) {
       if (data.big3 && typeof data.big3 === 'object') saveBIG3(data.big3);
       if (data.progStart) saveProgStart(data.progStart);
       if (Array.isArray(data.bodyWeight)) saveBodyWeightLog(data.bodyWeight);
+      if (data.deloadDismissed) saveDeloadDismissed(data.deloadDismissed);
       activeSession = getActiveSession();
       showToast('✓ インポート完了');
       closeSettingsModal();
@@ -1131,6 +1178,7 @@ async function deleteSession(sessionId) {
 async function clearAllData() {
   if (!await showConfirm('すべての記録を削除します。この操作は取り消せません。続行しますか？', '削除する', true)) return;
   if (!await showConfirm('本当によろしいですか？（最終確認）', '全削除', true)) return;
+  takeSnapshot();
   localStorage.removeItem('t101_history');
   localStorage.removeItem('t101_prs');
   localStorage.removeItem('t101_restdays');
@@ -1139,6 +1187,7 @@ async function clearAllData() {
   localStorage.removeItem('t101_prog_start');
   localStorage.removeItem('t101_backup_date');
   localStorage.removeItem('t101_bodyweight');
+  localStorage.removeItem('t101_deload_dismissed');
   activeSession = null;
   showToast('✓ データを削除しました');
   closeSettingsModal();

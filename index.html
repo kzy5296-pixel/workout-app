@@ -137,8 +137,14 @@
       <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
       <div class="divider"></div>
       <button class="btn btn-outline" style="color:#ff4444;border-color:#ff444455;" onclick="clearAllData()">⚠️ すべてのデータを削除</button>
-      <button class="btn btn-outline" onclick="closeSettingsModal()">閉じる</button>
     </div>
+
+    <div class="divider"></div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:6px;margin-top:16px;">🛟 復元</div>
+    <div style="font-size:12px;color:#888;margin-bottom:8px;">インポートや全削除の直前に自動保存されたスナップショットから復元できます（最大3件）</div>
+    <div id="snapshotList"></div>
+
+    <button class="btn btn-outline" style="width:100%;margin-top:16px;" onclick="closeSettingsModal()">閉じる</button>
     <div style="margin-top:20px;font-size:12px;color:#555;text-align:center;">
       エクスポートしたJSONは大切に保管してください。<br>
       機種変更時はこのファイルで復元できます。

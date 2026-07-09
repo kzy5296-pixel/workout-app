@@ -167,6 +167,52 @@ function renderHome() {
     }
   }
 
+  // 9週プログラム完走レポート（完走週=63日経過を超えたら表示。次サイクルへの誘導のみで開始日は自動更新しない）
+  let progCompleteHTML = '';
+  const progStart = getProgStart();
+  if (progStart) {
+    const daysElapsed = Math.floor((Date.now() - new Date(progStart + 'T12:00:00')) / 86400000);
+    if (daysElapsed >= 63) {
+      const big3 = getBIG3();
+      const rows = [];
+      if (big3.bench > 0) {
+        const rm = getRecentBestRM1('ベンチプレス', 21);
+        rows.push(`<div>ベンチ ${big3.bench}kg${rm ? ` → 推定${Math.round(rm)}kg` : '（開始時のみ）'}</div>`);
+      }
+      if (big3.squat > 0) {
+        const rm = getRecentBestRM1('スクワット', 21);
+        rows.push(`<div>スクワット ${big3.squat}kg${rm ? ` → 推定${Math.round(rm)}kg` : '（開始時のみ）'}</div>`);
+      }
+      progCompleteHTML = `
+        <div class="card" style="border:1.5px solid #4caf50;">
+          <div style="font-size:15px;font-weight:700;color:#4caf50;margin-bottom:8px;">🎓 9週プログラム完走！</div>
+          <div style="font-size:14px;line-height:2;">${rows.join('') || '<div style="color:#888;">BIG3を設定すると比較が見られます</div>'}</div>
+          <button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px;" onclick="startNextProgCycle()">次サイクルを開始</button>
+        </div>`;
+    }
+  }
+
+  // ディロード（回復週）提案。streak7週以上 & 却下から28日未満は再表示しない
+  let deloadHTML = '';
+  if (weekStreak >= 7) {
+    const dismissed = getDeloadDismissed();
+    const daysSinceDismiss = dismissed ? Math.floor((new Date(today) - new Date(dismissed)) / 86400000) : Infinity;
+    if (daysSinceDismiss >= 28) {
+      deloadHTML = `
+        <div class="card" style="border:1.5px solid #4fc3f755;">
+          <div style="font-size:13px;color:#4fc3f7;font-weight:700;margin-bottom:6px;">💤 ${weekStreak}週連続トレーニング中 — 回復週（普段の50%重量・半分のセット数）を検討</div>
+          <button class="btn btn-outline btn-sm" style="width:100%;" onclick="dismissDeloadSuggestion()">今は不要</button>
+        </div>`;
+    }
+  }
+
+  // 停滞（プラトー）検出
+  const plateaus = getPlateauExercises();
+  const plateauHTML = plateaus.map(p => `
+    <div class="card" style="border:1.5px solid #ff6b6b55;background:#1a1414;">
+      <div style="font-size:13px;color:#ff8a8a;font-weight:700;">📉 ${p.name}が3回連続で停滞中 — フェーズ変更か種目入替を検討</div>
+    </div>`).join('');
+
   el.innerHTML = `
     <div class="hero-section">
       <svg class="hero-dumbbell" viewBox="0 0 120 48" fill="none" stroke="#e8ff00" stroke-width="3" stroke-linecap="round">
@@ -199,6 +245,9 @@ function renderHome() {
     </div>
     ${activeWarnHTML}
     ${phaseHTML}
+    ${progCompleteHTML}
+    ${deloadHTML}
+    ${plateauHTML}
 
     <div class="card">
       <div class="card-title">🎯 今日のおすすめ</div>
@@ -260,6 +309,16 @@ function startQuickWorkout() {
 function resumeSession() {
   const saved = getActiveSession();
   if (saved) { activeSession = saved; switchTab('record'); }
+}
+
+function dismissDeloadSuggestion() {
+  saveDeloadDismissed(getWeekStart());
+  renderHome();
+}
+
+async function startNextProgCycle() {
+  if (!await showConfirm('次の9週間サイクルを始めます。設定画面で新しいBIG3の1RMを入力してください。', 'OK')) return;
+  openSettingsModal();
 }
 
 // ============================================================

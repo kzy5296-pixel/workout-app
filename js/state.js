@@ -366,6 +366,139 @@ function estimateRM1(weight, reps) {
   return rm1 > 0 ? Math.round(rm1 * 10) / 10 : null;
 }
 
+// 指定日数以内の履歴から、その種目のベスト推定1RMを返す（非bilateralのみ）
+function getRecentBestRM1(exName, sinceDays) {
+  const cutoff = new Date(todayStr());
+  cutoff.setDate(cutoff.getDate() - sinceDays);
+  const cutoffStr = `${cutoff.getFullYear()}-${pad2(cutoff.getMonth()+1)}-${pad2(cutoff.getDate())}`;
+  let best = null;
+  getHistory().filter(s => s.date >= cutoffStr).forEach(s => {
+    const ex = (s.exercises || []).find(e => e.name === exName && !e.bilateral);
+    if (!ex) return;
+    (ex.sets || []).filter(st => st.done && !st.warmup).forEach(st => {
+      const rm = estimateRM1(st.weight, st.reps);
+      if (rm && (!best || rm > best)) best = rm;
+    });
+  });
+  return best;
+}
+
+// RIR記録（直近最大3セッション、2件未満はデータ不足でnull）からの重量アドバイス
+function getRIRAdvice(exName) {
+  const sessionAvgs = [];
+  const history = getHistory().slice().reverse();
+  for (const s of history) {
+    const ex = (s.exercises || []).find(e => e.name === exName);
+    if (!ex) continue;
+    const rirSets = (ex.sets || []).filter(st => st.done && !st.warmup && typeof st.rir === 'number');
+    if (rirSets.length === 0) continue;
+    sessionAvgs.push(rirSets.reduce((a, b) => a + b.rir, 0) / rirSets.length);
+    if (sessionAvgs.length >= 3) break;
+  }
+  if (sessionAvgs.length < 2) return null;
+  const overall = sessionAvgs.reduce((a, b) => a + b, 0) / sessionAvgs.length;
+  if (overall >= 2)   return '💪 前回までRIRに余裕あり — 重量アップ候補';
+  if (overall <= 0.5) return '⚠️ 限界ギリギリが続いています — 重量据え置きか少し下げて';
+  return null;
+}
+
+// 直近60日で、直近3セッションのベスト推定1RMがほぼ横ばい（0.5%以内）の種目を検出
+function getPlateauExercises() {
+  const cutoff = new Date(todayStr());
+  cutoff.setDate(cutoff.getDate() - 60);
+  const cutoffStr = `${cutoff.getFullYear()}-${pad2(cutoff.getMonth()+1)}-${pad2(cutoff.getDate())}`;
+  const byExercise = {};
+  getHistory().filter(s => s.date >= cutoffStr).forEach(s => {
+    (s.exercises || []).forEach(ex => {
+      if (ex.bilateral) return;
+      let best = null;
+      (ex.sets || []).filter(st => st.done && !st.warmup).forEach(st => {
+        const rm = estimateRM1(st.weight, st.reps);
+        if (rm && (!best || rm > best)) best = rm;
+      });
+      if (best) {
+        if (!byExercise[ex.name]) byExercise[ex.name] = [];
+        byExercise[ex.name].push({ date: s.date, best });
+      }
+    });
+  });
+  const results = [];
+  Object.keys(byExercise).forEach(name => {
+    const arr = byExercise[name].sort((a, b) => a.date.localeCompare(b.date));
+    if (arr.length < 3) return;
+    const [v1, v2, v3] = arr.slice(-3).map(e => e.best);
+    if (v2 <= v1 * 1.005 && v3 <= v1 * 1.005) results.push({ name, best: v3 });
+  });
+  return results.slice(0, 2);
+}
+
+function getDeloadDismissed()   { return load('t101_deload_dismissed', null); }
+function saveDeloadDismissed(d) { save('t101_deload_dismissed', d); }
+
+// 同部位で8回以上続いた種目に、直近30日未使用の代替候補を添えて提案
+function getRotationSuggestions() {
+  const history = getHistory();
+  const results = [];
+  Object.keys(BODY_PARTS).some(part => {
+    if (results.length >= 2) return true;
+    const sessions = history
+      .filter(s => (s.exercises || []).some(e => e.part === part && (e.sets || []).some(st => st.done)))
+      .slice(-10);
+    if (sessions.length === 0) return false;
+    const counts = {};
+    sessions.forEach(s => {
+      const namesInSession = new Set();
+      (s.exercises || []).forEach(ex => {
+        if (ex.part === part && (ex.sets || []).some(st => st.done)) namesInSession.add(ex.name);
+      });
+      namesInSession.forEach(n => counts[n] = (counts[n] || 0) + 1);
+    });
+    Object.keys(counts).forEach(name => {
+      if (results.length >= 2) return;
+      if (counts[name] < 8) return;
+      const cutoff = new Date(todayStr());
+      cutoff.setDate(cutoff.getDate() - 30);
+      const cutoffStr = `${cutoff.getFullYear()}-${pad2(cutoff.getMonth()+1)}-${pad2(cutoff.getDate())}`;
+      const usedRecently = new Set();
+      history.filter(s => s.date >= cutoffStr).forEach(s =>
+        (s.exercises || []).forEach(ex => { if (ex.part === part) usedRecently.add(ex.name); })
+      );
+      const alternatives = (EXERCISES[part] || [])
+        .filter(ex => !usedRecently.has(ex.name))
+        .slice(0, 2)
+        .map(ex => ex.name);
+      results.push({ name, part, count: counts[name], alternatives });
+    });
+    return false;
+  });
+  return results.slice(0, 2);
+}
+
+// ============================================================
+//  DATA SNAPSHOTS（復元用。exportData/clearAllData/importDataの対象外）
+// ============================================================
+
+function getSnapshots()   { return load('t101_snapshots', []); }
+function saveSnapshots(l) { save('t101_snapshots', l); }
+
+function takeSnapshot() {
+  const snapshots = getSnapshots();
+  snapshots.push({
+    savedAt: new Date().toISOString(),
+    data: {
+      history:    getHistory(),
+      prs:        getPRs(),
+      gymDays:    getGymDays(),
+      session:    getActiveSession(),
+      big3:       getBIG3(),
+      progStart:  getProgStart(),
+      bodyWeight: getBodyWeightLog()
+    }
+  });
+  while (snapshots.length > 3) snapshots.shift();
+  saveSnapshots(snapshots);
+}
+
 function intensityBadge(intensity) {
   if (!intensity) return '';
   const t = INTENSITY_TYPES[intensity];

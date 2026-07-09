@@ -258,8 +258,31 @@ function drawExerciseProgressChart() {
   });
 }
 
+// 体重データの日付範囲に重なる週（日曜始まり）ごとの総ボリューム。週中央の日付を添える
+function getWeeklyVolumeForRange(minDateStr, maxDateStr) {
+  const history = getHistory();
+  const weeks = [];
+  const cursor = new Date(minDateStr + 'T12:00:00');
+  cursor.setDate(cursor.getDate() - cursor.getDay());
+  const maxD = new Date(maxDateStr + 'T12:00:00');
+  while (cursor <= maxD) {
+    const weekStart = new Date(cursor);
+    const weekEnd   = new Date(cursor); weekEnd.setDate(weekEnd.getDate() + 6);
+    const wsStr = `${weekStart.getFullYear()}-${pad2(weekStart.getMonth()+1)}-${pad2(weekStart.getDate())}`;
+    const weStr = `${weekEnd.getFullYear()}-${pad2(weekEnd.getMonth()+1)}-${pad2(weekEnd.getDate())}`;
+    const vol = history.filter(s => s.date >= wsStr && s.date <= weStr)
+      .reduce((sum, s) => sum + calcSessionVolume(s), 0);
+    const mid = new Date(weekStart); mid.setDate(mid.getDate() + 3);
+    const midStr = `${mid.getFullYear()}-${pad2(mid.getMonth()+1)}-${pad2(mid.getDate())}`;
+    weeks.push({ midDate: midStr, vol });
+    cursor.setDate(cursor.getDate() + 7);
+  }
+  return weeks;
+}
+
 function drawBodyWeightChart() {
-  const canvas = document.getElementById('bodyWeightChart');
+  const canvas   = document.getElementById('bodyWeightChart');
+  const legendEl = document.getElementById('bodyWeightLegend');
   if (!canvas) return;
 
   const data = getBodyWeightLog().slice(-30);
@@ -271,7 +294,10 @@ function drawBodyWeightChart() {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, W, H);
 
-  if (data.length === 0) return;
+  if (data.length === 0) {
+    if (legendEl) legendEl.innerHTML = '';
+    return;
+  }
 
   const values = data.map(d => d.weight);
   let minV = Math.min(...values);
@@ -297,6 +323,59 @@ function drawBodyWeightChart() {
     ctx.font       = '10px system-ui';
     ctx.textAlign  = 'right';
     ctx.fillText(`${Math.round(v * 10) / 10}`, padL - 5, y + 3);
+  }
+
+  // 週間ボリュームの重ね描き（体重の日付範囲に2週分以上あるときだけ）
+  const minDateStr = data[0].date;
+  const maxDateStr = data[data.length - 1].date;
+  const volWeeks = getWeeklyVolumeForRange(minDateStr, maxDateStr);
+  const showVolOverlay = volWeeks.length >= 2;
+
+  if (showVolOverlay) {
+    const minT = new Date(minDateStr + 'T12:00:00').getTime();
+    const maxT = new Date(maxDateStr + 'T12:00:00').getTime();
+    const dateToX = (dateStr) => {
+      if (maxT === minT) return padL + chartW / 2;
+      const t = new Date(dateStr + 'T12:00:00').getTime();
+      const ratio = Math.min(1, Math.max(0, (t - minT) / (maxT - minT)));
+      return padL + chartW * ratio;
+    };
+
+    const volValues = volWeeks.map(w => w.vol);
+    let volMin = Math.min(...volValues);
+    let volMax = Math.max(...volValues);
+    if (volMin === volMax) { volMin = Math.max(0, volMin - 100); volMax += 100; }
+    else {
+      const volSpan = volMax - volMin;
+      volMin = Math.max(0, volMin - volSpan * 0.2);
+      volMax += volSpan * 0.2;
+    }
+    const yAtVol = v => padT + chartH * (1 - (v - volMin) / (volMax - volMin));
+
+    ctx.save();
+    ctx.strokeStyle = '#ffa726';
+    ctx.lineWidth   = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    volWeeks.forEach((w, i) => {
+      const x = dateToX(w.midDate), y = yAtVol(w.vol);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    volWeeks.forEach(w => {
+      ctx.fillStyle = '#ffa726';
+      ctx.beginPath();
+      ctx.arc(dateToX(w.midDate), yAtVol(w.vol), 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+  }
+
+  if (legendEl) {
+    legendEl.innerHTML = showVolOverlay
+      ? '<span style="color:#4fc3f7;">— 体重(kg)</span>　<span style="color:#ffa726;">- - 週間ボリューム</span>'
+      : '';
   }
 
   ctx.strokeStyle = '#4fc3f7';
@@ -523,6 +602,17 @@ function renderLRImbalanceCard() {
   return `<div class="card"><div class="card-title">⚖️ 左右バランス</div>${rows}</div>`;
 }
 
+function renderRotationCard() {
+  const items = getRotationSuggestions();
+  if (items.length === 0) return '';
+  const rows = items.map(it =>
+    `<div style="padding:6px 0;border-bottom:1px solid #222;font-size:13px;color:#ffb84d;">
+      ${it.name}が直近10回中${it.count}回 — 代替候補: ${it.alternatives.length ? it.alternatives.join('、') : '（同部位の未使用種目なし）'}
+    </div>`
+  ).join('');
+  return `<div class="card"><div class="card-title">🔄 マンネリ注意</div>${rows}</div>`;
+}
+
 // ============================================================
 //  月間レポート
 // ============================================================
@@ -728,6 +818,7 @@ function renderAnalysis() {
     </div>
     ${renderPartIntervalCard()}
     ${renderLRImbalanceCard()}
+    ${renderRotationCard()}
     <div class="card">
       <div class="card-title">📆 月間レポート</div>
       <div class="cal-header">
@@ -763,6 +854,7 @@ function renderAnalysis() {
       <div class="chart-wrap">
         <canvas id="bodyWeightChart"></canvas>
       </div>
+      <div id="bodyWeightLegend" style="margin-top:6px;font-size:11px;color:#888;"></div>
     </div>` : ''}
     <div class="card">
       <div class="card-title">🔄 マンデルブロ Phase ローテーション（部位別・直近6回）</div>
