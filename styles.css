@@ -1155,3 +1155,9 @@ input[type="date"]:focus { outline: none; border-color: #e8ff00; }
   align-items: center;
   gap: 10px;
 }
+
+/* ===== PR CONFETTI ===== */
+@keyframes confettiFall {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+}

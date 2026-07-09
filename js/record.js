@@ -77,9 +77,15 @@ function renderRecord() {
         ${phaseHintHTML}
         ${prev ? `<div class="prev-weight">${prev}</div>` : ''}
         ${prevMemo ? `<div style="font-size:11px;color:#ffb84d;background:#ffa72610;border:1px solid #ffa72630;border-radius:6px;padding:4px 8px;margin-bottom:6px;">📝 前回メモ(${prevMemo.date.slice(5).replace('-','/')}): ${prevMemo.memo}</div>` : ''}
-        <input type="text" class="ex-memo-input" placeholder="📝 メモ（例: 肩に違和感）"
+        <input type="text" class="ex-memo-input" id="memoInput_${exIdx}" placeholder="📝 メモ（例: 肩に違和感）"
           value="${ex.memo || ''}" oninput="updateExerciseMemo(${exIdx},this.value)"
-          style="width:100%;background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:8px;box-sizing:border-box;-webkit-appearance:none;appearance:none;">
+          style="width:100%;background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:6px;box-sizing:border-box;-webkit-appearance:none;appearance:none;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+          ${['フォーム良好','肩に違和感','腰に違和感','重く感じた','軽く感じた'].map(t =>
+            `<button type="button" onclick="addMemoChip(${exIdx},'${t}')"
+              style="background:#1c1c1c;color:#aaa;border:1px solid #333;border-radius:100px;padding:4px 10px;font-size:11px;cursor:pointer;">${t}</button>`
+          ).join('')}
+        </div>
         <div id="setsContainer_${exIdx}">${setsHTML}</div>
         <button class="add-set-btn" onclick="addSet(${exIdx})">＋ セット追加</button>
       </div>`;
@@ -204,6 +210,7 @@ function renderSetRow(exIdx, si, set, bilateral) {
   const rm1 = estimateRM1(set.weight, set.reps);
   const rm1HTML = `<div id="rm1_${exIdx}_${si}" style="font-size:10px;color:#888;padding:2px 8px 4px 44px;">${rm1 ? `推定1RM ${rm1}kg` : ''}</div>`;
   const rirHTML = renderRIRRow(exIdx, si, set);
+  const diffHTML = renderDiffChip(exIdx, si, set);
   return `
     <div class="set-row-wrap" id="setWrap_${exIdx}_${si}" style="margin-bottom:8px;">
       <div class="set-row ${rowClass} ${warmupActive ? 'warmup' : ''}" id="setRow_${exIdx}_${si}" style="margin-bottom:0;">
@@ -228,9 +235,27 @@ function renderSetRow(exIdx, si, set, bilateral) {
           onclick="toggleSetDone(${exIdx},${si})">✓</button>
       </div>
       ${rm1HTML}
+      ${diffHTML}
       ${rirHTML}
       ${rpPanel}
     </div>`;
+}
+
+// 前回セッションとの重量差（完了・非bilateralセットのみ）。set.done=falseや前回データなしは空表示
+function renderDiffChip(exIdx, si, set) {
+  if (!set.done) return `<div id="diff_${exIdx}_${si}"></div>`;
+  const ex = activeSession.exercises[exIdx];
+  if (ex.bilateral) return `<div id="diff_${exIdx}_${si}"></div>`;
+  const prev  = getPrevData(ex.name, false);
+  const cur   = parseFloat(set.weight);
+  const prevW = prev ? parseFloat(prev.weight) : null;
+  if (!prev || !cur || !prevW) return `<div id="diff_${exIdx}_${si}"></div>`;
+  const diff = Math.round((cur - prevW) * 10) / 10;
+  let label, color;
+  if (diff > 0)      { label = `🔺+${diff}kg`;  color = '#4caf50'; }
+  else if (diff < 0) { label = `🔻${diff}kg`;   color = '#ff6b6b'; }
+  else                { label = '＝ 前回と同重量'; color = '#888'; }
+  return `<div id="diff_${exIdx}_${si}" style="font-size:10px;padding:2px 8px 4px 44px;color:${color};">${label}</div>`;
 }
 
 // RIR（あと何回いけたか）選択行。完了済み・非ウォームアップのセットのみ表示。
@@ -680,7 +705,7 @@ function toggleSetDone(exIdx, si) {
     if (w && r && !set.warmup) {
       const vol = w * r;
       if (!prs[ex.name] || vol > prs[ex.name].volume) {
-        showPRToast(ex.name, w, r);
+        showPRToast(ex.name, w, r, prs[ex.name] || null);
       }
     }
 
@@ -699,6 +724,8 @@ function toggleSetDone(exIdx, si) {
   saveActiveSession(activeSession);
   const rirEl = document.getElementById(`rir_${exIdx}_${si}`);
   if (rirEl) rirEl.outerHTML = renderRIRRow(exIdx, si, set);
+  const diffEl = document.getElementById(`diff_${exIdx}_${si}`);
+  if (diffEl) diffEl.outerHTML = renderDiffChip(exIdx, si, set);
   updateLiveStats();
   if (activeSession.giantSetMode) updateGiantHighlight();
 
@@ -742,6 +769,16 @@ function updateExerciseMemo(exIdx, val) {
   if (!activeSession) return;
   activeSession.exercises[exIdx].memo = val;
   saveActiveSession(activeSession);
+}
+
+// 定型文チップ: 既存メモへ「、」区切りで追記（再レンダリングせずinputに直接反映）
+function addMemoChip(exIdx, text) {
+  const input = document.getElementById(`memoInput_${exIdx}`);
+  if (!input) return;
+  const cur  = input.value.trim();
+  const next = cur ? `${cur}、${text}` : text;
+  input.value = next;
+  updateExerciseMemo(exIdx, next);
 }
 
 function setVolume(s, bilateral) {
@@ -941,7 +978,7 @@ function closeSettingsModal(e) {
 //  DATA EXPORT / IMPORT
 // ============================================================
 
-function exportData() {
+async function exportData() {
   const data = {
     version:    1,
     exportedAt: new Date().toISOString(),
@@ -953,19 +990,39 @@ function exportData() {
     progStart:  getProgStart(),
     bodyWeight: getBodyWeightLog()
   };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  const d    = new Date();
+  const d        = new Date();
+  const filename = `101training_backup_${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}.json`;
+  const blob     = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+
+  const finish = () => {
+    saveLastBackup(todayStr());
+    showToast('✓ エクスポート完了');
+    if (currentTab === 'home') renderHome();
+  };
+
+  // iOSはファイルAppへ直接保存できるようWeb Shareを優先し、非対応・失敗時のみダウンロードにフォールバック
+  if (navigator.share && navigator.canShare) {
+    try {
+      const file = new File([blob], filename, { type: 'application/json' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: filename });
+        finish();
+        return;
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return; // ユーザーがキャンセル → 何もしない
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
   a.href     = url;
-  a.download = `101training_backup_${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}.json`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  saveLastBackup(todayStr());
-  showToast('✓ エクスポート完了');
-  if (currentTab === 'home') renderHome();
+  finish();
 }
 
 function exportDataCSV() {

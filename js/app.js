@@ -762,13 +762,57 @@ function showToast(msg) {
 }
 
 let _prToastTimer = null;
-function showPRToast(exName, weight, reps) {
+function showPRToast(exName, weight, reps, oldPr) {
   const el = document.getElementById('pr-toast');
-  el.innerHTML = `🏆 NEW PR！ ${exName} ${weight}kg × ${reps}`;
+  const diffText = oldPr ? `${oldPr.weight}kg×${oldPr.reps} → ${weight}kg×${reps}` : `${weight}kg × ${reps}`;
+  el.innerHTML = `🏆 NEW PR！ ${exName}<br><span style="font-size:12px;opacity:0.85;">${diffText}</span>`;
   el.classList.add('show');
   if (_prToastTimer) clearTimeout(_prToastTimer);
   _prToastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+  spawnConfetti();
 }
+
+function spawnConfetti() {
+  const colors = ['#e8ff00', '#ff6b6b', '#4fc3f7', '#4caf50', '#ffa726'];
+  for (let i = 0; i < 30; i++) {
+    const el = document.createElement('div');
+    const left     = Math.random() * 100;
+    const delay    = Math.random() * 0.3;
+    const duration = 1.6 + Math.random() * 0.8;
+    const color    = colors[Math.floor(Math.random() * colors.length)];
+    const size     = 6 + Math.random() * 6;
+    el.style.cssText = `position:fixed;top:-10px;left:${left}vw;width:${size}px;height:${size}px;background:${color};z-index:3000;pointer-events:none;border-radius:2px;animation:confettiFall ${duration}s ${delay}s ease-in forwards;`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), (duration + delay) * 1000 + 100);
+  }
+}
+
+// ============================================================
+//  OFFLINE BANNER
+// ============================================================
+
+function updateOfflineBanner() {
+  let banner = document.getElementById('offlineBanner');
+  if (!navigator.onLine) {
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'offlineBanner';
+      banner.style.cssText = [
+        'position:fixed', 'left:0', 'right:0', 'top:0', 'z-index:9998',
+        'background:#2a2a2a', 'color:#e8ff00', 'text-align:center',
+        'font-size:12px', 'font-weight:700',
+        'padding:8px 12px', 'padding-top:calc(8px + env(safe-area-inset-top))'
+      ].join(';');
+      banner.textContent = '📡 オフライン — 記録はこの端末に保存されるので大丈夫';
+      document.body.appendChild(banner);
+    }
+  } else if (banner) {
+    banner.remove();
+  }
+}
+window.addEventListener('online', updateOfflineBanner);
+window.addEventListener('offline', updateOfflineBanner);
+updateOfflineBanner();
 
 // ============================================================
 //  VISIBILITY CHANGE (タイマー再同期)

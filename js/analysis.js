@@ -68,6 +68,7 @@ function calNextMonth() {
 // ============================================================
 
 let progressExName = null;
+let progressChartMode = 'weight'; // 'weight' | 'rm1'
 
 // 履歴に登場する種目名を「最後にやった日が新しい順」で返す
 function listTrainedExercises() {
@@ -100,8 +101,44 @@ function getExerciseProgressData(exName) {
   return out;
 }
 
+// セッションごとの推定1RM最大値（完了・非ウォームアップセットのみ）。bilateral は L/R 別
+function getExerciseRM1Data(exName) {
+  const out = [];
+  getHistory().forEach(s => {
+    const ex = (s.exercises || []).find(e => e.name === exName);
+    if (!ex) return;
+    const done = (ex.sets || []).filter(st => st.done && !st.warmup);
+    if (done.length === 0) return;
+    if (ex.bilateral) {
+      let bestL = 0, bestR = 0;
+      done.forEach(st => {
+        const rmL = estimateRM1(st.weightL, st.repsL);
+        if (rmL && rmL > bestL) bestL = rmL;
+        const rmR = estimateRM1(st.weightR, st.repsR);
+        if (rmR && rmR > bestR) bestR = rmR;
+      });
+      if (bestL > 0 || bestR > 0) out.push({ date: s.date, intensity: s.intensity, bilateral: true, l: bestL, r: bestR });
+    } else {
+      let best = 0;
+      done.forEach(st => {
+        const rm = estimateRM1(st.weight, st.reps);
+        if (rm && rm > best) best = rm;
+      });
+      if (best > 0) out.push({ date: s.date, intensity: s.intensity, w: best });
+    }
+  });
+  return out;
+}
+
 function onProgressExChange(name) {
   progressExName = name;
+  drawExerciseProgressChart();
+}
+
+function toggleProgressMode() {
+  progressChartMode = progressChartMode === 'weight' ? 'rm1' : 'weight';
+  const btn = document.getElementById('progressModeBtn');
+  if (btn) btn.textContent = progressChartMode === 'rm1' ? '📊 推定1RM表示中（切替）' : '📊 重量表示中（切替）';
   drawExerciseProgressChart();
 }
 
@@ -110,7 +147,8 @@ function drawExerciseProgressChart() {
   const legendEl = document.getElementById('exProgressLegend');
   if (!canvas || !progressExName) return;
 
-  const data = getExerciseProgressData(progressExName).slice(-12);
+  const rawData = progressChartMode === 'rm1' ? getExerciseRM1Data(progressExName) : getExerciseProgressData(progressExName);
+  const data = rawData.slice(-12);
 
   const W = canvas.parentElement.clientWidth;
   const H = 210;
@@ -123,7 +161,8 @@ function drawExerciseProgressChart() {
     ctx.fillStyle = '#555';
     ctx.font      = '13px system-ui';
     ctx.textAlign = 'center';
-    ctx.fillText('この種目の重量記録はまだありません', W / 2, H / 2);
+    const emptyMsg = progressChartMode === 'rm1' ? '推定1RMを算出できる記録がまだありません（高rep種目は対象外）' : 'この種目の重量記録はまだありません';
+    ctx.fillText(emptyMsg, W / 2, H / 2);
     if (legendEl) legendEl.innerHTML = '';
     return;
   }
@@ -356,6 +395,194 @@ function formatRestLabel(sec) {
   return m > 0 ? `${m}分${s}秒` : `${s}秒`;
 }
 
+function formatDuration(ms) {
+  const totalMin = Math.round(ms / 60000);
+  const h = Math.floor(totalMin / 60), m = totalMin % 60;
+  return h > 0 ? `${h}時間${m}分` : `${m}分`;
+}
+
+// 部位ごとの最終実施日（完了セットが1つ以上あるセッションのdate）
+function getPartLastTrained() {
+  const result = {};
+  getHistory().forEach(s => {
+    (s.exercises || []).forEach(ex => {
+      if ((ex.sets || []).some(st => st.done) && (!result[ex.part] || s.date > result[ex.part])) {
+        result[ex.part] = s.date;
+      }
+    });
+  });
+  return result;
+}
+
+function renderPartIntervalCard() {
+  const lastTrained = getPartLastTrained();
+  const today = todayStr();
+  const parts = Object.keys(BODY_PARTS).filter(p => lastTrained[p]);
+  if (parts.length === 0) return '';
+  const rows = parts.map(p => {
+    const days = Math.floor((new Date(today) - new Date(lastTrained[p])) / 86400000);
+    const warn = days >= 7;
+    const label = days === 0 ? '今日' : `${days}日前`;
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #222;">
+        <span style="font-size:13px;color:#aaa;">${BODY_PARTS[p].label}</span>
+        <span style="font-size:13px;font-weight:700;color:${warn ? '#ff6b6b' : '#4caf50'};">${label}</span>
+      </div>`;
+  }).join('');
+  return `<div class="card"><div class="card-title">⏱️ 部位ごとの間隔</div>${rows}</div>`;
+}
+
+// 種目ごとの日次ボリューム合計（同日複数セッションは合算）
+function getDailyVolumeMap() {
+  const map = {};
+  getHistory().forEach(s => {
+    map[s.date] = (map[s.date] || 0) + calcSessionVolume(s);
+  });
+  return map;
+}
+
+function renderYearHeatmap() {
+  const dailyVol = getDailyVolumeMap();
+  const todayS   = todayStr();
+  const today    = new Date(todayS + 'T12:00:00');
+  const start    = new Date(today);
+  start.setDate(start.getDate() - 371);
+  start.setDate(start.getDate() - start.getDay()); // 直近53週分、開始日を日曜に揃える
+
+  const maxVol = Math.max(1, ...Object.values(dailyVol));
+  const cellColor = (vol) => {
+    if (vol <= 0) return '#1c1c1c';
+    const ratio = vol / maxVol;
+    if (ratio > 0.66) return '#e8ff00';
+    if (ratio > 0.33) return '#e8ff0099';
+    return '#e8ff0044';
+  };
+
+  const weeksHTML = [];
+  const cursor = new Date(start);
+  while (true) {
+    const cellsHTML = [];
+    for (let d = 0; d < 7; d++) {
+      const dateStr = `${cursor.getFullYear()}-${pad2(cursor.getMonth()+1)}-${pad2(cursor.getDate())}`;
+      if (dateStr > todayS) {
+        cellsHTML.push(`<div style="width:8px;height:8px;"></div>`);
+      } else {
+        const vol = dailyVol[dateStr] || 0;
+        cellsHTML.push(`<div title="${dateStr}: ${Math.round(vol)}kg" style="width:8px;height:8px;border-radius:2px;background:${cellColor(vol)};"></div>`);
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    weeksHTML.push(`<div style="display:grid;grid-template-rows:repeat(7,8px);gap:2px;">${cellsHTML.join('')}</div>`);
+    if (cursor > today) break;
+  }
+
+  return `<div id="yearHeatmapScroll" style="overflow-x:auto;padding-bottom:6px;">
+    <div style="display:grid;grid-auto-flow:column;gap:2px;width:max-content;">${weeksHTML.join('')}</div>
+  </div>`;
+}
+
+// bilateral種目の左右差。直近3セッション連続で同じ側が5%以上弱い場合のみ検出
+function getLRImbalance() {
+  const exNames = new Set();
+  getHistory().forEach(s => (s.exercises || []).forEach(ex => { if (ex.bilateral) exNames.add(ex.name); }));
+
+  const results = [];
+  exNames.forEach(name => {
+    const sessions = [];
+    getHistory().forEach(s => {
+      const ex = (s.exercises || []).find(e => e.name === name && e.bilateral);
+      if (!ex) return;
+      const done = (ex.sets || []).filter(st => st.done && st.weightL && st.weightR);
+      if (done.length === 0) return;
+      const avgL = done.reduce((a, b) => a + parseFloat(b.weightL), 0) / done.length;
+      const avgR = done.reduce((a, b) => a + parseFloat(b.weightR), 0) / done.length;
+      sessions.push({ avgL, avgR });
+    });
+    if (sessions.length < 3) return;
+    const last3 = sessions.slice(-3);
+    const sides = last3.map(s => {
+      const diff = Math.abs(s.avgL - s.avgR);
+      const pct  = diff / Math.max(s.avgL, s.avgR) * 100;
+      if (pct < 5) return null;
+      return s.avgL < s.avgR ? 'L' : 'R';
+    });
+    if (sides[0] && sides.every(s => s === sides[0])) {
+      const avgPct = last3.reduce((sum, s) => sum + Math.abs(s.avgL - s.avgR) / Math.max(s.avgL, s.avgR) * 100, 0) / 3;
+      results.push({ name, side: sides[0], pct: Math.round(avgPct) });
+    }
+  });
+  return results;
+}
+
+function renderLRImbalanceCard() {
+  const items = getLRImbalance();
+  if (items.length === 0) return '';
+  const rows = items.map(it =>
+    `<div style="padding:6px 0;border-bottom:1px solid #222;font-size:13px;color:#ff8a65;">⚠ ${it.name}: ${it.side === 'L' ? '左' : '右'}が平均${it.pct}%弱い</div>`
+  ).join('');
+  return `<div class="card"><div class="card-title">⚖️ 左右バランス</div>${rows}</div>`;
+}
+
+// ============================================================
+//  月間レポート
+// ============================================================
+
+let reportYear  = new Date().getFullYear();
+let reportMonth = new Date().getMonth();
+
+function reportPrevMonth() {
+  reportMonth--;
+  if (reportMonth < 0) { reportMonth = 11; reportYear--; }
+  renderMonthReportCard();
+}
+function reportNextMonth() {
+  reportMonth++;
+  if (reportMonth > 11) { reportMonth = 0; reportYear++; }
+  renderMonthReportCard();
+}
+
+function renderMonthReportCard() {
+  const labelEl = document.getElementById('monthReportLabel');
+  const bodyEl  = document.getElementById('monthReportBody');
+  if (!labelEl || !bodyEl) return;
+
+  const prefix   = `${reportYear}-${pad2(reportMonth + 1)}`;
+  const sessions = getHistory().filter(s => s.date.startsWith(prefix));
+  labelEl.textContent = `${reportYear}年${reportMonth + 1}月`;
+
+  if (sessions.length === 0) {
+    bodyEl.innerHTML = '<div class="empty-state"><div class="es-icon">📆</div><div>この月の記録はありません</div></div>';
+    return;
+  }
+
+  const totalVol = sessions.reduce((sum, s) => sum + calcSessionVolume(s), 0);
+  const prs      = getPRs();
+  const prCount  = Object.values(prs).filter(pr => pr.date && pr.date.startsWith(prefix)).length;
+
+  const partCounts = {};
+  sessions.forEach(s => (s.exercises || []).forEach(ex => {
+    partCounts[ex.part] = (partCounts[ex.part] || 0) + 1;
+  }));
+  const topPart      = Object.keys(partCounts).sort((a, b) => partCounts[b] - partCounts[a])[0];
+  const topPartLabel = topPart ? BODY_PARTS[topPart].label : '—';
+
+  const durations = sessions
+    .filter(s => s.startTime && s.endTime && (s.endTime - s.startTime) >= 300000 && (s.endTime - s.startTime) <= 21600000)
+    .map(s => s.endTime - s.startTime);
+  const avgDurLabel = durations.length > 0
+    ? formatDuration(durations.reduce((a, b) => a + b, 0) / durations.length)
+    : null;
+
+  bodyEl.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div><div style="font-size:11px;color:#888;">トレーニング回数</div><div style="font-size:20px;font-weight:800;color:#e8ff00;">${sessions.length}回</div></div>
+      <div><div style="font-size:11px;color:#888;">総ボリューム</div><div style="font-size:20px;font-weight:800;color:#e8ff00;">${totalVol.toLocaleString()}kg</div></div>
+      <div><div style="font-size:11px;color:#888;">PR更新数</div><div style="font-size:20px;font-weight:800;color:#e8ff00;">${prCount}件</div></div>
+      <div><div style="font-size:11px;color:#888;">最多部位</div><div style="font-size:20px;font-weight:800;color:#e8ff00;">${topPartLabel}</div></div>
+    </div>
+    ${avgDurLabel ? `<div style="margin-top:10px;font-size:12px;color:#888;">平均所要時間 ${avgDurLabel}</div>` : ''}`;
+}
+
 function renderAnalysis() {
   const el       = document.getElementById('screen-analysis');
   const history  = getHistory();
@@ -424,6 +651,8 @@ function renderAnalysis() {
       const sets  = (s.exercises||[]).reduce((acc, ex) => acc + ex.sets.filter(st => st.done).length, 0);
       const avgRest   = getAvgRestSeconds(s);
       const restLabel = avgRest ? ` ／ 平均休憩 ${formatRestLabel(avgRest)}` : '';
+      const durMs     = (s.startTime && s.endTime) ? (s.endTime - s.startTime) : 0;
+      const durLabel  = (durMs >= 300000 && durMs <= 21600000) ? ` ／ 所要 ${formatDuration(durMs)}` : '';
       return `
         <div class="session-hist-item" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
           <div style="flex:1;min-width:0;">
@@ -432,7 +661,7 @@ function renderAnalysis() {
               <span class="sh-title" style="margin:0;">${s.name}</span>
               ${intensityBadge(s.intensity)}
             </div>
-            <div class="sh-meta">${parts} ／ ${sets}セット ／ ${vol.toLocaleString()}kg${restLabel}</div>
+            <div class="sh-meta">${parts} ／ ${sets}セット ／ ${vol.toLocaleString()}kg${restLabel}${durLabel}</div>
           </div>
           <button class="btn-icon btn" style="background:#2a1a1a;color:#ff6666;flex-shrink:0;" onclick="deleteSession('${s.id}')" title="削除">🗑</button>
         </div>`;
@@ -494,6 +723,21 @@ function renderAnalysis() {
       ${renderVolumeHeatmap(history)}
     </div>
     <div class="card">
+      <div class="card-title">🌱 トレーニング密度（直近1年）</div>
+      ${renderYearHeatmap()}
+    </div>
+    ${renderPartIntervalCard()}
+    ${renderLRImbalanceCard()}
+    <div class="card">
+      <div class="card-title">📆 月間レポート</div>
+      <div class="cal-header">
+        <button class="cal-nav-btn" onclick="reportPrevMonth()">‹</button>
+        <div class="cal-month-label" id="monthReportLabel"></div>
+        <button class="cal-nav-btn" onclick="reportNextMonth()">›</button>
+      </div>
+      <div id="monthReportBody"></div>
+    </div>
+    <div class="card">
       <div class="card-title">📊 種目別 重量推移（直近12回）</div>
       ${trainedExs.length === 0
         ? '<div class="empty-state"><div class="es-icon">📊</div><div>記録が増えると種目ごとの重量推移が見られます</div></div>'
@@ -503,6 +747,11 @@ function renderAnalysis() {
                      padding:11px 12px;font-size:14px;margin-bottom:10px;-webkit-appearance:none;appearance:none;">
         ${trainedExs.map(n => `<option value="${n}" ${n === progressExName ? 'selected' : ''}>${n}</option>`).join('')}
       </select>
+      <button id="progressModeBtn" onclick="toggleProgressMode()"
+        style="width:100%;background:#1c1c1c;color:#e8ff00;border:1px solid #333;border-radius:8px;
+               padding:8px 12px;font-size:12px;font-weight:700;margin-bottom:10px;cursor:pointer;">
+        ${progressChartMode === 'rm1' ? '📊 推定1RM表示中（切替）' : '📊 重量表示中（切替）'}
+      </button>
       <div class="chart-wrap">
         <canvas id="exProgressChart"></canvas>
       </div>
@@ -548,6 +797,9 @@ function renderAnalysis() {
     drawBodyWeightChart();
     renderPhaseRotation(history);
     renderCalendar();
+    renderMonthReportCard();
+    const heatmapScroll = document.getElementById('yearHeatmapScroll');
+    if (heatmapScroll) heatmapScroll.scrollLeft = heatmapScroll.scrollWidth;
   });
 }
 
