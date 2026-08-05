@@ -576,6 +576,12 @@ function _unlockTimerAudio() {
   const AudioCtor = window.AudioContext || window.webkitAudioContext;
   if (!AudioCtor) return;
 
+  // iOS の Web Audio は既定で「環境音」扱いになり、サイレントスイッチで丸ごと消える。
+  // playback にするとマナーモードでもタイマー音が鳴る（Safari 16.4+）。
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = 'playback';
+  } catch(e) {}
+
   try {
     if (!_timerAudioCtx) _timerAudioCtx = new AudioCtor();
     if (_timerAudioCtx.state === 'suspended') _timerAudioCtx.resume();
@@ -590,7 +596,8 @@ function _unlockTimerAudio() {
   } catch(e) {}
 }
 
-function _playTimerAlarm() {
+// offsets: 鳴らすタイミング（秒）。省略時はインターバル終了用の5連打。
+function _playTimerAlarm(offsets) {
   const AudioCtor = window.AudioContext || window.webkitAudioContext;
   if (!AudioCtor) return;
 
@@ -603,7 +610,7 @@ function _playTimerAlarm() {
   const doPlay = () => {
     try {
       const now = ctx.currentTime;
-      [0, 0.34, 0.68, 1.12, 1.46].forEach((offset, i) => {
+      (offsets || [0, 0.34, 0.68, 1.12, 1.46]).forEach((offset, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'square';

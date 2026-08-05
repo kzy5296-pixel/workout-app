@@ -478,6 +478,8 @@ function startMiniTimer(secs) {
   const num = document.getElementById('mini-timer-num');
   if (!el || !num) return;
   if (_miniTimerInt) clearInterval(_miniTimerInt);
+  // まだ1セットも完了していないと音声が未解禁のことがあるのでここでも解禁しておく
+  _unlockTimerAudio();
   let r = secs;
   num.textContent = r;
   el.classList.add('show');
@@ -486,6 +488,7 @@ function startMiniTimer(secs) {
     if (r <= 0) {
       clearInterval(_miniTimerInt); _miniTimerInt = null;
       el.classList.remove('show');
+      _playTimerAlarm([0, 0.3]);   // 画面を見ていなくても再開が分かるように短く2発
       try { navigator.vibrate && navigator.vibrate([60,40,60]); } catch(e) {}
       showToast('⚡ 追い込みrep入力 →');
     } else {
