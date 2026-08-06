@@ -391,9 +391,10 @@ function buildExercises(parts) {
         }
       }
 
-      const rpDefault = selectedIntensity === 'heavy' && !bilateral;
+      // 高重量フェーズは片側種目も含めてレストポーズを既定にする（見出しの案内と揃える）
+      const rpDefault = selectedIntensity === 'heavy';
       const makeSet = () => bilateral
-        ? { id: Math.random().toString(36).slice(2), weightL: w, repsL: r, weightR: w, repsR: r, done: false }
+        ? { id: Math.random().toString(36).slice(2), weightL: w, repsL: r, weightR: w, repsR: r, done: false, restPause: rpDefault, rpReps: rpDefault ? ['','','',''] : undefined }
         : { id: Math.random().toString(36).slice(2), weight: w, reps: r, done: false, restPause: rpDefault, rpReps: rpDefault ? ['','','',''] : undefined };
 
       list.push({

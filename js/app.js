@@ -577,9 +577,10 @@ function _unlockTimerAudio() {
   if (!AudioCtor) return;
 
   // iOS の Web Audio は既定で「環境音」扱いになり、サイレントスイッチで丸ごと消える。
-  // playback にするとマナーモードでもタイマー音が鳴る（Safari 16.4+）。
+  // transient は通知音の扱いで、マナーモードでも鳴りつつ他アプリの音は
+  // 一時的に小さくするだけで止めない（playback だと YouTube 等が停止する）。
   try {
-    if (navigator.audioSession) navigator.audioSession.type = 'playback';
+    if (navigator.audioSession) navigator.audioSession.type = 'transient';
   } catch(e) {}
 
   try {

@@ -157,6 +157,9 @@ function renderSetRow(exIdx, si, set, bilateral) {
   const doneClass = set.done ? 'done' : '';
   const rowClass  = set.done ? 'completed' : '';
   if (bilateral) {
+    const rpOn    = !!set.restPause;
+    const rpRO    = rpOn ? 'readonly style="opacity:0.6;"' : '';
+    const rpPanelB = rpOn ? renderRPPanel(exIdx, si, set, true) : '';
     const wL = parseFloat(set.weightL)||0, wR = parseFloat(set.weightR)||0;
     let lrDiffHTML = '';
     if (wL > 0 && wR > 0) {
@@ -186,7 +189,7 @@ function renderSetRow(exIdx, si, set, bilateral) {
               <input type="number" class="rep-input"
                 id="rR_${exIdx}_${si}"
                 value="${set.repsR || ''}" placeholder="rep" min="0"
-                oninput="updateSetField(${exIdx},${si},'repsR',this.value)">
+                oninput="updateSetField(${exIdx},${si},'repsR',this.value)" ${rpRO}>
             </div>
             <div style="display:flex;align-items:center;gap:6px;">
               <span style="font-size:12px;color:#e8ff00;font-weight:800;min-width:16px;">L</span>
@@ -198,14 +201,19 @@ function renderSetRow(exIdx, si, set, bilateral) {
               <input type="number" class="rep-input"
                 id="rL_${exIdx}_${si}"
                 value="${set.repsL || ''}" placeholder="rep" min="0"
-                oninput="updateSetField(${exIdx},${si},'repsL',this.value)">
+                oninput="updateSetField(${exIdx},${si},'repsL',this.value)" ${rpRO}>
             </div>
           </div>
-          <button class="set-done-btn ${doneClass}" id="doneBtn_${exIdx}_${si}"
-            style="margin-top:4px;"
-            onclick="toggleSetDone(${exIdx},${si})">✓</button>
+          <div style="display:flex;flex-direction:column;gap:5px;margin-top:4px;">
+            <button class="rp-toggle-btn ${rpOn ? 'active' : ''}"
+              title="レストポーズ法（Phase 2推奨）"
+              onclick="toggleRestPause(${exIdx},${si})">⚡</button>
+            <button class="set-done-btn ${doneClass}" id="doneBtn_${exIdx}_${si}"
+              onclick="toggleSetDone(${exIdx},${si})">✓</button>
+          </div>
         </div>
         ${lrDiffHTML}
+        ${rpPanelB}
       </div>`;
   }
   const rpActive = !!set.restPause;
@@ -298,7 +306,7 @@ function toggleWarmup(exIdx, si) {
   updateLiveStats();
 }
 
-function renderRPPanel(exIdx, si, set) {
+function renderRPPanel(exIdx, si, set, bilateral) {
   const reps  = (set.rpReps && set.rpReps.length > 0) ? set.rpReps : ['','','',''];
   const hints = ['4','3','2','1'];
   const inputs = reps.map((r, mi) => `
@@ -310,10 +318,13 @@ function renderRPPanel(exIdx, si, set) {
   `).join('');
   const filled  = reps.filter(r => r !== '' && parseInt(r) > 0);
   const total   = filled.reduce((a,b) => a + (parseInt(b)||0), 0);
-  const w       = parseFloat(set.weight) || 0;
-  const summary = total > 0
-    ? `${filled.join('+')} = 計${total}rep ／ ボリューム ${(w*total).toLocaleString()}kg`
+  const w       = parseFloat(bilateral ? set.weightL : set.weight) || 0;
+  const hint    = bilateral
+    ? '片側ずつ：同じ重量のまま → 限界まで → 15〜20秒休憩 → また限界まで（左右まとめて1本で記録）'
     : '同じ重量のまま → 限界まで → 15〜20秒休憩 → また限界まで（repsは自然に減ります）';
+  const summary = total > 0
+    ? `${filled.join('+')} = ${bilateral ? '左右各' : '計'}${total}rep ／ ボリューム ${(w*total).toLocaleString()}kg`
+    : hint;
   return `
     <div class="rp-panel" id="rpPanel_${exIdx}_${si}">
       <div class="rp-panel-title">
@@ -444,57 +455,43 @@ function toggleRestPause(exIdx, si) {
 
 function commitRPRep(exIdx, si, mi, val) {
   if (!activeSession) return;
-  const set = activeSession.exercises[exIdx].sets[si];
+  const ex  = activeSession.exercises[exIdx];
+  const set = ex.sets[si];
   if (!set.rpReps) set.rpReps = [];
   set.rpReps[mi] = val;
   const total = set.rpReps.reduce((a,b) => a + (parseInt(b)||0), 0);
-  set.reps = total > 0 ? String(total) : '';
+  const totalStr = total > 0 ? String(total) : '';
+  // 片側種目は左右まとめて1本で数えるので、同じ合計を左右どちらにも入れる
+  if (ex.bilateral) {
+    set.repsL = totalStr;
+    set.repsR = totalStr;
+  } else {
+    set.reps = totalStr;
+  }
   saveActiveSession(activeSession);
   const panel = document.getElementById('rpPanel_' + exIdx + '_' + si);
-  if (panel) panel.outerHTML = renderRPPanel(exIdx, si, set);
-  const rEl = document.getElementById('r_' + exIdx + '_' + si);
-  if (rEl) rEl.value = set.reps;
+  if (panel) panel.outerHTML = renderRPPanel(exIdx, si, set, ex.bilateral);
+  if (ex.bilateral) {
+    ['rL_', 'rR_'].forEach(prefix => {
+      const el = document.getElementById(prefix + exIdx + '_' + si);
+      if (el) el.value = totalStr;
+    });
+  } else {
+    const rEl = document.getElementById('r_' + exIdx + '_' + si);
+    if (rEl) rEl.value = totalStr;
+  }
   updateLiveStats();
-  if (parseInt(val) > 0) startMiniTimer(20);
 }
 
 function addRPMini(exIdx, si) {
   if (!activeSession) return;
-  const set = activeSession.exercises[exIdx].sets[si];
+  const ex  = activeSession.exercises[exIdx];
+  const set = ex.sets[si];
   if (!set.rpReps) set.rpReps = [];
   set.rpReps.push('');
   saveActiveSession(activeSession);
   const panel = document.getElementById('rpPanel_' + exIdx + '_' + si);
-  if (panel) panel.outerHTML = renderRPPanel(exIdx, si, set);
-}
-
-// ============================================================
-//  MINI TIMER
-// ============================================================
-
-let _miniTimerInt = null;
-function startMiniTimer(secs) {
-  const el  = document.getElementById('mini-timer');
-  const num = document.getElementById('mini-timer-num');
-  if (!el || !num) return;
-  if (_miniTimerInt) clearInterval(_miniTimerInt);
-  // まだ1セットも完了していないと音声が未解禁のことがあるのでここでも解禁しておく
-  _unlockTimerAudio();
-  let r = secs;
-  num.textContent = r;
-  el.classList.add('show');
-  _miniTimerInt = setInterval(() => {
-    r--;
-    if (r <= 0) {
-      clearInterval(_miniTimerInt); _miniTimerInt = null;
-      el.classList.remove('show');
-      _playTimerAlarm([0, 0.3]);   // 画面を見ていなくても再開が分かるように短く2発
-      try { navigator.vibrate && navigator.vibrate([60,40,60]); } catch(e) {}
-      showToast('⚡ 追い込みrep入力 →');
-    } else {
-      num.textContent = r;
-    }
-  }, 1000);
+  if (panel) panel.outerHTML = renderRPPanel(exIdx, si, set, ex.bilateral);
 }
 
 // ============================================================
