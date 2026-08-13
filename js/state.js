@@ -328,7 +328,7 @@ function getPrevData(exName, bilateral) {
         const done = (ex.sets || []).filter(s => s.done && s.weight);
         if (done.length > 0) {
           const last = done[done.length - 1];
-          return { weight: last.weight, reps: last.reps };
+          return { weight: last.weight, reps: last.reps, failed: !!last.failed };
         }
       }
     }

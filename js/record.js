@@ -31,6 +31,11 @@ function renderRecord() {
   const exCardsHTML = activeSession.exercises.map((ex, exIdx) => {
     const prev     = getPrevWeight(ex.name, ex.bilateral);
     const prevMemo = getPrevMemo(ex.name);
+    // 前回の最終セットが未達なら重量を上げない（非bilateralのみ。未達マークはRIR行と同じ制約）
+    const prevData = ex.bilateral ? null : getPrevData(ex.name, false);
+    const prevFailedHTML = (prevData && prevData.failed)
+      ? `<div style="font-size:11px;color:#ff8888;background:#ff6b6b12;border:1px solid #ff6b6b40;border-radius:6px;padding:4px 8px;margin-bottom:6px;">⚠️ 前回未達 → 重量据え置き推奨</div>`
+      : '';
     const rirAdvice = getRIRAdvice(ex.name);
     const rirAdviceHTML = rirAdvice
       ? `<div style="font-size:11px;color:${rirAdvice.startsWith('💪') ? '#4caf50' : '#ffb84d'};background:${rirAdvice.startsWith('💪') ? '#4caf5010' : '#ffa72610'};border:1px solid ${rirAdvice.startsWith('💪') ? '#4caf5030' : '#ffa72630'};border-radius:6px;padding:4px 8px;margin-bottom:6px;">${rirAdvice}</div>`
@@ -80,6 +85,7 @@ function renderRecord() {
         ${restPauseHTML}
         ${phaseHintHTML}
         ${prev ? `<div class="prev-weight">${prev}</div>` : ''}
+        ${prevFailedHTML}
         ${prevMemo ? `<div style="font-size:11px;color:#ffb84d;background:#ffa72610;border:1px solid #ffa72630;border-radius:6px;padding:4px 8px;margin-bottom:6px;">📝 前回メモ(${prevMemo.date.slice(5).replace('-','/')}): ${prevMemo.memo}</div>` : ''}
         ${rirAdviceHTML}
         <input type="text" class="ex-memo-input" id="memoInput_${exIdx}" placeholder="📝 メモ（例: 肩に違和感）"
@@ -223,6 +229,7 @@ function renderSetRow(exIdx, si, set, bilateral) {
   const rm1 = estimateRM1(set.weight, set.reps);
   const rm1HTML = `<div id="rm1_${exIdx}_${si}" style="font-size:10px;color:#888;padding:2px 8px 4px 44px;">${rm1 ? `推定1RM ${rm1}kg` : ''}</div>`;
   const rirHTML = renderRIRRow(exIdx, si, set);
+  const dropHTML = renderDropRow(exIdx, si, set);
   const diffHTML = renderDiffChip(exIdx, si, set);
   return `
     <div class="set-row-wrap" id="setWrap_${exIdx}_${si}" style="margin-bottom:8px;">
@@ -250,6 +257,7 @@ function renderSetRow(exIdx, si, set, bilateral) {
       ${rm1HTML}
       ${diffHTML}
       ${rirHTML}
+      ${dropHTML}
       ${rpPanel}
     </div>`;
 }
@@ -281,8 +289,11 @@ function renderRIRRow(exIdx, si, set) {
     return `<button class="rp-toggle-btn ${active ? 'active' : ''}" style="width:auto;min-width:32px;border-radius:6px;padding:0 8px;${active ? 'background:#4caf5022;border-color:#4caf50;color:#4caf50;box-shadow:0 0 8px #4caf5055;' : ''}"
       onclick="setRIR(${exIdx},${si},${o.val})">${o.label}</button>`;
   }).join('');
-  return `<div id="rir_${exIdx}_${si}" style="display:flex;align-items:center;gap:6px;padding:2px 8px 4px 44px;">
-    <span style="font-size:10px;color:#888;">RIR（あと何回）:</span>${btns}
+  const failed = !!set.failed;
+  const failBtn = `<button class="rp-toggle-btn ${failed ? 'active' : ''}" style="width:auto;border-radius:6px;padding:0 8px;font-size:11px;${failed ? 'background:#ff6b6b22;border-color:#ff6b6b;color:#ff6b6b;box-shadow:0 0 8px #ff6b6b55;' : ''}"
+    title="狙い回数に届かなかった" onclick="toggleFailed(${exIdx},${si})">未達</button>`;
+  return `<div id="rir_${exIdx}_${si}" style="display:flex;align-items:center;gap:6px;padding:2px 8px 4px 44px;flex-wrap:wrap;">
+    <span style="font-size:10px;color:#888;">RIR（あと何回）:</span>${btns}${failBtn}
   </div>`;
 }
 
@@ -293,6 +304,77 @@ function setRIR(exIdx, si, val) {
   saveActiveSession(activeSession);
   const el = document.getElementById(`rir_${exIdx}_${si}`);
   if (el) el.outerHTML = renderRIRRow(exIdx, si, set);
+}
+
+// 狙い回数に届かなかったセット。次回同種目で据え置き推奨を出す材料になる
+function toggleFailed(exIdx, si) {
+  if (!activeSession) return;
+  const set = activeSession.exercises[exIdx].sets[si];
+  set.failed = !set.failed;
+  saveActiveSession(activeSession);
+  const el = document.getElementById(`rir_${exIdx}_${si}`);
+  if (el) el.outerHTML = renderRIRRow(exIdx, si, set);
+}
+
+// ドロップセット（完了セットの直後に重量を落として続けた分）。最大3件、非bilateralのみ
+function renderDropRow(exIdx, si, set) {
+  if (!set.done || set.warmup) return `<div id="drop_${exIdx}_${si}"></div>`;
+  const drops = set.drops || [];
+  const rows = drops.map((d, di) => `
+    <div style="display:flex;align-items:center;gap:6px;">
+      <span style="font-size:10px;color:#ffb84d;min-width:20px;font-weight:700;">↓${di+1}</span>
+      <input type="number" class="weight-input" style="width:64px;height:34px;font-size:13px;"
+        value="${d.weight ?? ''}" placeholder="kg" min="0" step="0.5"
+        oninput="updateDropField(${exIdx},${si},${di},'weight',this.value)">
+      <span class="x-sep">×</span>
+      <input type="number" class="rep-input" style="width:56px;height:34px;font-size:13px;"
+        value="${d.reps ?? ''}" placeholder="rep" min="0"
+        oninput="updateDropField(${exIdx},${si},${di},'reps',this.value)">
+      <button class="rp-toggle-btn" style="width:28px;height:28px;font-size:11px;"
+        title="このドロップを削除" onclick="removeDrop(${exIdx},${si},${di})">✕</button>
+    </div>`).join('');
+  const addBtn = drops.length < 3
+    ? `<button class="rp-toggle-btn" style="width:auto;border-radius:6px;padding:0 8px;font-size:11px;"
+        title="重量を落として続けた分を記録" onclick="addDrop(${exIdx},${si})">＋ドロップ</button>`
+    : '';
+  return `<div id="drop_${exIdx}_${si}" style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:2px 8px 4px 44px;">${rows}${addBtn}</div>`;
+}
+
+function addDrop(exIdx, si) {
+  if (!activeSession) return;
+  const set = activeSession.exercises[exIdx].sets[si];
+  if (!set.drops) set.drops = [];
+  if (set.drops.length >= 3) return;
+  // 直前のドロップ（なければ元セット）の80%。段階的に落ちるので手直しが要らない
+  const base = parseFloat(set.weight) || 0;
+  const last = set.drops.length ? (parseFloat(set.drops[set.drops.length - 1].weight) || base) : base;
+  set.drops.push({ weight: last ? Math.round(last * 0.8 / 2.5) * 2.5 : '', reps: '' });
+  saveActiveSession(activeSession);
+  const el = document.getElementById(`drop_${exIdx}_${si}`);
+  if (el) el.outerHTML = renderDropRow(exIdx, si, set);
+  updateLiveStats();
+}
+
+function removeDrop(exIdx, si, di) {
+  if (!activeSession) return;
+  const set = activeSession.exercises[exIdx].sets[si];
+  if (!set.drops) return;
+  set.drops.splice(di, 1);
+  if (set.drops.length === 0) delete set.drops;
+  saveActiveSession(activeSession);
+  const el = document.getElementById(`drop_${exIdx}_${si}`);
+  if (el) el.outerHTML = renderDropRow(exIdx, si, set);
+  updateLiveStats();
+}
+
+// 入力中は再描画しない（フォーカスが飛ぶため）。ボリューム表示だけ更新する
+function updateDropField(exIdx, si, di, field, val) {
+  if (!activeSession) return;
+  const set = activeSession.exercises[exIdx].sets[si];
+  if (!set.drops || !set.drops[di]) return;
+  set.drops[di][field] = val;
+  saveActiveSession(activeSession);
+  updateLiveStats();
 }
 
 function toggleWarmup(exIdx, si) {
@@ -729,6 +811,8 @@ function toggleSetDone(exIdx, si) {
   saveActiveSession(activeSession);
   const rirEl = document.getElementById(`rir_${exIdx}_${si}`);
   if (rirEl) rirEl.outerHTML = renderRIRRow(exIdx, si, set);
+  const dropEl = document.getElementById(`drop_${exIdx}_${si}`);
+  if (dropEl) dropEl.outerHTML = renderDropRow(exIdx, si, set);
   const diffEl = document.getElementById(`diff_${exIdx}_${si}`);
   if (diffEl) diffEl.outerHTML = renderDiffChip(exIdx, si, set);
   updateLiveStats();
@@ -794,7 +878,12 @@ function setVolume(s, bilateral) {
     if (s.weightR && s.repsR) v += parseFloat(s.weightR) * parseInt(s.repsR);
     return v;
   }
-  return (s.weight && s.reps) ? parseFloat(s.weight) * parseInt(s.reps) : 0;
+  let v = (s.weight && s.reps) ? parseFloat(s.weight) * parseInt(s.reps) : 0;
+  // ドロップセット分（PR判定には使わない。疲労状態の記録のため）
+  (s.drops || []).forEach(d => {
+    if (d && d.weight && d.reps) v += parseFloat(d.weight) * parseInt(d.reps);
+  });
+  return v;
 }
 
 function calcLiveVolume() {
