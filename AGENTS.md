@@ -20,7 +20,27 @@ npx --yes http-server -p 3333 -c-1
 
 **Deploy:** push to main (GitHub Pages, no CI). キャッシュ更新を含む手順は `deploy` スキル（`.claude/skills/deploy/SKILL.md`）を参照。
 
+**コミットとpushは、頼まれた作業の一部として最後まで行う。** 「直して」「作って」と頼まれたら、編集して結果を確認したあと `deploy` スキルの手順（`sw.js` の `CACHE_NAME` を上げる → 変更ファイルを名指しで add → commit → push → 公開URLで反映確認）まで通してから報告する。
+
+ただしこのリポジトリは公開されていて、mainへのpushがそのまま本番公開になる（カズヤさんのiPhoneのホーム画面に入っているPWAにも配信される）。**`git add .` は使わず、今回変更したファイルだけを名指しで add する。** 同居している無関係なファイル（下の「作業範囲」の表）を巻き込まないため。
+
 There is no build step, no package manager, no transpilation. Edit the HTML/CSS/JS files directly.
+
+## 作業範囲
+
+アプリ開発を頼まれたときに編集してよいのは、リポジトリ直下のアプリ本体だけ:
+`index.html` / `styles.css` / `js/*.js` / `sw.js` / `manifest.json` / アイコン画像。
+
+同じフォルダに、このアプリと無関係なものが同居している。名指しで頼まれない限り読み書きしない:
+
+| 場所 | 中身 | 注意 |
+|---|---|---|
+| `ai-staff/` | AI社員の記憶・タスク・ナレッジ | 別リポジトリ。`.gitignore` 済み |
+| `シフト表作成/` | 職場のシフト自動作成ツール一式 | **`.gitignore` されていない。公開リポジトリなので絶対にコミットしない** |
+| `実装指示書*.md` | 機能追加の発注書 | 読む対象。実装結果を書き戻す場所ではない |
+| `.claude/` `.codex/` | 設定とスキル | |
+
+上のどれにも当てはまらないファイルを編集する必要が出たら、先に確認する。
 
 ## Architecture
 
