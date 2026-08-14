@@ -613,6 +613,14 @@ input[type="number"]::-webkit-outer-spin-button { opacity: 0; }
 .giant-part-group {
   margin-bottom: 16px;
 }
+/* ジャイアントセット中のセット追加ボタン（見落とされないよう通常より強調） */
+.giant-set-wrap .add-set-btn {
+  border-color: #ff6b6b55;
+  color: #ff8888;
+  font-weight: 700;
+  margin-top: 0;
+}
+.giant-set-wrap > .add-set-btn { margin-top: 4px; }
 .giant-part-title {
   display: flex;
   align-items: center;
@@ -638,10 +646,12 @@ input[type="number"]::-webkit-outer-spin-button { opacity: 0; }
   border-bottom: 1px solid #333;
 }
 .giant-round-count { font-size: 12px; color: #888; font-weight: 700; flex-shrink: 0; }
+/* 種目名と入力欄は同じ行に収まらなければ折り返す（スマホ幅で名前が潰れないように） */
 .giant-ex-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 8px 6px;
   margin-bottom: 8px;
   padding: 8px;
   background: #252525;
@@ -651,26 +661,35 @@ input[type="number"]::-webkit-outer-spin-button { opacity: 0; }
   background: #00c85315;
   border: 1px solid #00c85330;
 }
+/* 長い種目名は切り詰めず折り返して全文を表示する */
 .giant-ex-name {
-  flex: 1;
   font-size: 14px;
   font-weight: 700;
   color: #ddd;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.3;
 }
 .giant-bilateral { display: flex; flex-direction: column; gap: 5px; }
 .giant-lr { display: flex; align-items: center; gap: 6px; }
 .giant-ex-namewrap {
-  flex: 1;
+  flex: 1 1 9em;   /* 名前が入りきらない幅なら入力欄が次の行へ回る */
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 .giant-ex-namewrap .giant-ex-name { flex: none; }
+/* 入力欄＋✓ボタンは1かたまりで折り返す（縮まないので名前を潰さない） */
+.giant-ex-fields {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
 .giant-prev { font-size: 10px; color: #777; }
 .giant-reorder {
   display: flex;

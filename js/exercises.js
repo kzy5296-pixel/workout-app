@@ -341,6 +341,43 @@ function buildULExercises(dayIdx) {
 //  EXERCISE BUILD HELPERS
 // ============================================================
 
+// 種目リストを部位ごとのブロックに分ける（部位が最初に登場した順を維持）
+function _partBlocks(list) {
+  const blocks = [];
+  const pos    = {};
+  list.forEach(ex => {
+    const p = ex.part || 'core';
+    if (pos[p] === undefined) { pos[p] = blocks.length; blocks.push({ part: p, items: [] }); }
+    blocks[pos[p]].items.push(ex);
+  });
+  return blocks;
+}
+
+// 拮抗筋を交互に回すため、部位ブロックから1種目ずつ取り出して並べ直す。
+//   胸A,胸B,胸C,背A,背B → 胸A,背A,胸B,背B,胸C
+// 端数ルール: 種目数が合わない場合は、尽きた部位を飛ばして交互を続ける。
+// つまり「可能な範囲で交互 → 残った部位の種目は末尾に連続」で並ぶ。
+function interleaveByPart(list) {
+  const blocks = _partBlocks(list);
+  if (blocks.length < 2) return list.slice();
+  const out    = [];
+  const rounds = Math.max(...blocks.map(b => b.items.length));
+  for (let i = 0; i < rounds; i++) {
+    blocks.forEach(b => { if (b.items[i]) out.push(b.items[i]); });
+  }
+  return out;
+}
+
+// 部位ごとにまとめ直す（従来の並び）
+function groupByPart(list) {
+  return _partBlocks(list).reduce((acc, b) => acc.concat(b.items), []);
+}
+
+// 並び順モードを適用。mode 省略時は保存された設定を使う
+function applyExOrder(list, mode) {
+  return (mode || getExOrderMode()) === 'grouped' ? groupByPart(list) : interleaveByPart(list);
+}
+
 function _rpeTag() {
   return { heavy: 'h', medium: 'm', light: 'l' }[selectedIntensity] || 'm';
 }
@@ -366,7 +403,7 @@ function menuExercises(parts) {
       list.push({ name: ex.name, part, rec: ex.rec, bilateral: !!ex.bilateral });
     });
   });
-  return list;
+  return applyExOrder(list);
 }
 
 function buildExercises(parts) {
@@ -408,7 +445,7 @@ function buildExercises(parts) {
       });
     });
   });
-  return list;
+  return applyExOrder(list);
 }
 
 // 時短メニュー：各部位1種目・2セットだけに絞った軽量版
@@ -447,7 +484,7 @@ function buildQuickExercises(parts) {
       sets: Array.from({ length: 2 }, makeSet)
     });
   });
-  return list;
+  return applyExOrder(list);
 }
 
 // ============================================================

@@ -122,6 +122,19 @@ function renderRecord() {
                  cursor:pointer;min-height:40px;">
           🔥 ジャイアントセット ${activeSession.giantSetMode ? 'ON（部位別・周ごと表示中）' : 'OFF'}
         </button>
+        ${activeSession.giantSetMode ? '' : (() => {
+          // 種目の並び順トグル。ジャイアントセット表示中は部位ブロック単位で並ぶため出さない
+          const alt = getExOrderMode() !== 'grouped';
+          return `<button onclick="toggleExOrder()"
+            style="margin-top:8px;margin-left:8px;display:inline-flex;align-items:center;gap:6px;
+                   background:${alt ? '#4fc3f7' : '#2a2a2a'};
+                   color:${alt ? '#0f0f0f' : '#aaa'};
+                   border:1px solid ${alt ? '#4fc3f7' : '#444'};
+                   border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;
+                   cursor:pointer;min-height:40px;">
+            ${alt ? '🔀 交互（拮抗筋）' : '📚 部位ごと'}
+          </button>`;
+        })()}
         <button onclick="openPlateModal()"
           style="margin-top:8px;margin-left:8px;display:inline-flex;align-items:center;gap:6px;
                  background:#2a2a2a;color:#aaa;border:1px solid #444;
@@ -596,6 +609,21 @@ function toggleGiantSetMode() {
   renderRecord();
 }
 
+// ワークアウト全体の種目並び順を「交互（拮抗筋）」⇔「部位ごと」で切り替える。
+// 設定は保存され、次に組むメニューにも適用される。
+// ジャイアントセット表示は部位ブロック単位なので、ブロック内の種目順は変わらない。
+function toggleExOrder() {
+  if (!activeSession) return;
+  const mode = getExOrderMode() === 'grouped' ? 'alternate' : 'grouped';
+  saveExOrderMode(mode);
+  activeSession.exercises = applyExOrder(activeSession.exercises, mode);
+  saveActiveSession(activeSession);
+  showToast(mode === 'alternate'
+    ? '🔀 交互に並べ替えました（胸→背中→胸…）'
+    : '📚 部位ごとにまとめました');
+  renderRecord();
+}
+
 // 種目の空セットを生成（bilateral対応）
 function newEmptySet(ex) {
   // 前回値プリフィル: 重量は「同セッション内の直前セット → なければ履歴の前回値」を初期表示する。
@@ -658,16 +686,19 @@ function renderGiantSetView() {
         </div>`;
     }
     return `
-      <div class="giant-part-group">
+      <div class="giant-part-group" id="giantGroup_${g.part}">
         <div class="giant-part-title"><span class="badge ${bp.badge}">${bp.label}</span></div>
         ${roundsHTML}
+        <button class="add-set-btn" onclick="addGiantRound('${g.part}')">
+          ＋ セット追加（${bp.label}の${g.items.length}種目に1周）
+        </button>
       </div>`;
   }).join('');
   return `
     <div class="giant-set-wrap">
       <div class="giant-set-banner">🔥 ジャイアントセット — 部位ごと・1周ごとにまとめて記録します</div>
       ${groupsHTML}
-      <button class="add-set-btn" onclick="addRound()">＋ 周を追加（全${exs.length}種目に1セット）</button>
+      <button class="add-set-btn" onclick="addGiantRound()">＋ セット追加（全${exs.length}種目に1周）</button>
     </div>`;
 }
 
@@ -680,8 +711,10 @@ function renderGiantRow(exIdx, si, set, ex) {
   const reorder   = `<div class="giant-reorder">${isFirst ? `
         <button class="giant-mv" ${exIdx === 0 ? 'disabled' : ''} onclick="moveExercise(${exIdx},-1)" title="上へ">▲</button>
         <button class="giant-mv" ${exIdx === total - 1 ? 'disabled' : ''} onclick="moveExercise(${exIdx},1)" title="下へ">▼</button>` : ''}</div>`;
+  // 種目名は省略せず全文表示する（.giant-ex-name で折り返し）。
+  // 名前と入力欄は同じ行に収まらなければ折り返して2行になる（.giant-ex-row の flex-wrap）
   const nameWrap  = `<div class="giant-ex-namewrap">
-        <div class="giant-ex-name">${ex.name}</div>
+        <div class="giant-ex-name" title="${ex.name}">${ex.name}</div>
         ${prev ? `<div class="giant-prev">${prev}</div>` : ''}
       </div>`;
   const doneBtn   = `<button class="set-done-btn ${doneClass}" id="doneBtn_${exIdx}_${si}" onclick="toggleSetDone(${exIdx},${si})">✓</button>`;
@@ -690,43 +723,47 @@ function renderGiantRow(exIdx, si, set, ex) {
       <div class="giant-ex-row ${rowClass}" id="setRow_${exIdx}_${si}">
         ${reorder}
         ${nameWrap}
-        <div class="giant-bilateral">
-          <div class="giant-lr">
-            <span style="color:#4fc3f7;font-weight:800;font-size:11px;min-width:14px;">R</span>
-            <input type="number" class="weight-input" id="wR_${exIdx}_${si}"
-              value="${set.weightR || ''}" placeholder="kg" min="0" step="0.5"
-              oninput="updateSetField(${exIdx},${si},'weightR',this.value)">
-            <span class="x-sep">×</span>
-            <input type="number" class="rep-input" id="rR_${exIdx}_${si}"
-              value="${set.repsR || ''}" placeholder="rep" min="0"
-              oninput="updateSetField(${exIdx},${si},'repsR',this.value)">
+        <div class="giant-ex-fields">
+          <div class="giant-bilateral">
+            <div class="giant-lr">
+              <span style="color:#4fc3f7;font-weight:800;font-size:11px;min-width:14px;">R</span>
+              <input type="number" class="weight-input" id="wR_${exIdx}_${si}"
+                value="${set.weightR || ''}" placeholder="kg" min="0" step="0.5"
+                oninput="updateSetField(${exIdx},${si},'weightR',this.value)">
+              <span class="x-sep">×</span>
+              <input type="number" class="rep-input" id="rR_${exIdx}_${si}"
+                value="${set.repsR || ''}" placeholder="rep" min="0"
+                oninput="updateSetField(${exIdx},${si},'repsR',this.value)">
+            </div>
+            <div class="giant-lr">
+              <span style="color:#e8ff00;font-weight:800;font-size:11px;min-width:14px;">L</span>
+              <input type="number" class="weight-input" id="wL_${exIdx}_${si}"
+                value="${set.weightL || ''}" placeholder="kg" min="0" step="0.5"
+                oninput="updateSetField(${exIdx},${si},'weightL',this.value)">
+              <span class="x-sep">×</span>
+              <input type="number" class="rep-input" id="rL_${exIdx}_${si}"
+                value="${set.repsL || ''}" placeholder="rep" min="0"
+                oninput="updateSetField(${exIdx},${si},'repsL',this.value)">
+            </div>
           </div>
-          <div class="giant-lr">
-            <span style="color:#e8ff00;font-weight:800;font-size:11px;min-width:14px;">L</span>
-            <input type="number" class="weight-input" id="wL_${exIdx}_${si}"
-              value="${set.weightL || ''}" placeholder="kg" min="0" step="0.5"
-              oninput="updateSetField(${exIdx},${si},'weightL',this.value)">
-            <span class="x-sep">×</span>
-            <input type="number" class="rep-input" id="rL_${exIdx}_${si}"
-              value="${set.repsL || ''}" placeholder="rep" min="0"
-              oninput="updateSetField(${exIdx},${si},'repsL',this.value)">
-          </div>
+          ${doneBtn}
         </div>
-        ${doneBtn}
       </div>`;
   }
   return `
     <div class="giant-ex-row ${rowClass}" id="setRow_${exIdx}_${si}">
       ${reorder}
       ${nameWrap}
-      <input type="number" class="weight-input" id="w_${exIdx}_${si}"
-        value="${set.weight || ''}" placeholder="kg" min="0" step="0.5"
-        oninput="updateSetField(${exIdx},${si},'weight',this.value)">
-      <span class="x-sep">×</span>
-      <input type="number" class="rep-input" id="r_${exIdx}_${si}"
-        value="${set.reps || ''}" placeholder="rep" min="0"
-        oninput="updateSetField(${exIdx},${si},'reps',this.value)">
-      ${doneBtn}
+      <div class="giant-ex-fields">
+        <input type="number" class="weight-input" id="w_${exIdx}_${si}"
+          value="${set.weight || ''}" placeholder="kg" min="0" step="0.5"
+          oninput="updateSetField(${exIdx},${si},'weight',this.value)">
+        <span class="x-sep">×</span>
+        <input type="number" class="rep-input" id="r_${exIdx}_${si}"
+          value="${set.reps || ''}" placeholder="rep" min="0"
+          oninput="updateSetField(${exIdx},${si},'reps',this.value)">
+        ${doneBtn}
+      </div>
     </div>`;
 }
 
@@ -741,32 +778,65 @@ function moveExercise(exIdx, dir) {
   renderRecord();
 }
 
-// 「次にやる種目」（最初の未完了セル）をハイライト
+// 「次にやる種目」（最初の未完了セル）をハイライト。
+// 表示は部位ブロック → 周 → 種目の順なので、探索も同じ順で辿る
+// （種目リストが交互並びでも、画面の並びとハイライトがずれないように）
 function updateGiantHighlight() {
   document.querySelectorAll('.giant-ex-row.giant-next').forEach(e => e.classList.remove('giant-next'));
   if (!activeSession || !activeSession.giantSetMode) return;
   const exs = activeSession.exercises;
   if (exs.length === 0) return;
-  const maxRounds = Math.max(...exs.map(e => e.sets.length), 1);
-  for (let r = 0; r < maxRounds; r++) {
-    for (let i = 0; i < exs.length; i++) {
-      const s = exs[i].sets[r];
-      if (s && !s.done) {
-        const el = document.getElementById('setRow_' + i + '_' + r);
-        if (el) el.classList.add('giant-next');
-        return;
+
+  const blocks = [];
+  const pos    = {};
+  exs.forEach((ex, exIdx) => {
+    const p = ex.part || 'core';
+    if (pos[p] === undefined) { pos[p] = blocks.length; blocks.push([]); }
+    blocks[pos[p]].push({ ex, exIdx });
+  });
+
+  for (const items of blocks) {
+    const maxRounds = Math.max(...items.map(it => it.ex.sets.length), 1);
+    for (let r = 0; r < maxRounds; r++) {
+      for (const it of items) {
+        const s = it.ex.sets[r];
+        if (s && !s.done) {
+          const el = document.getElementById('setRow_' + it.exIdx + '_' + r);
+          if (el) el.classList.add('giant-next');
+          return;
+        }
       }
     }
   }
 }
 
-// 全種目に1セット（＝1周）を追加
-function addRound() {
+// ジャイアントセット中のセット追加。
+// セットは「種目ごとの配列」で持っているので、1周＝含まれる全種目に1セットずつ追加する。
+// part を渡すとその部位ブロックだけ、省略すると全種目に追加する。
+function addGiantRound(part) {
   if (!activeSession) return;
-  activeSession.exercises.forEach(ex => ex.sets.push(newEmptySet(ex)));
+  const targets = activeSession.exercises
+    .map((ex, exIdx) => ({ ex, exIdx }))
+    .filter(it => part == null || (it.ex.part || 'core') === part);
+  if (targets.length === 0) return;
+
+  // ブロック内で周数がずれていたら最大に揃えてから1周ぶん足す（歯抜け防止）
+  const newRound = Math.max(...targets.map(it => it.ex.sets.length), 0);
+  targets.forEach(it => {
+    while (it.ex.sets.length < newRound) it.ex.sets.push(newEmptySet(it.ex));
+    it.ex.sets.push(newEmptySet(it.ex));
+  });
   saveActiveSession(activeSession);
   renderRecord();
+
+  // 追加した周までスクロールして、増えたことが分かるようにする
+  const first = document.getElementById(`setRow_${targets[0].exIdx}_${newRound}`);
+  if (first) first.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  showToast(`＋ ${newRound + 1}周目を追加（${targets.length}種目）`);
 }
+
+// 旧名の互換エイリアス（全種目に1周追加）
+function addRound() { addGiantRound(); }
 
 // ============================================================
 //  SET ACTIONS
@@ -796,11 +866,17 @@ function toggleSetDone(exIdx, si) {
       }
     }
 
-    // タイマー：通常は種目ごと、ジャイアントセット時は1周の最後の種目でだけ起動
+    // タイマー：通常は種目ごと、ジャイアントセット時はその部位ブロックの1周を終えたときだけ起動
     if (!activeSession.giantSetMode) {
       startTimer(activeSession.exercises[exIdx].name);
-    } else if (exIdx === activeSession.exercises.length - 1) {
-      startTimer(`ジャイアントセット ${si + 1}周目`);
+    } else {
+      const part  = ex.part || 'core';
+      const block = activeSession.exercises.filter(e => (e.part || 'core') === part);
+      const lastInBlock = block[block.length - 1] === ex;
+      if (lastInBlock) {
+        const bp = BODY_PARTS[part] || { label: part };
+        startTimer(`${bp.label} ジャイアントセット ${si + 1}周目`);
+      }
     }
   } else {
     delete set.completedAt;
@@ -838,6 +914,10 @@ function toggleSetDone(exIdx, si) {
 function addSet(exIdx) {
   if (!activeSession) return;
   const ex  = activeSession.exercises[exIdx];
+  if (!ex) return;
+  // ジャイアントセット表示中は種目カード（setsContainer_*）が無いので、
+  // 同じ部位ブロック全体に1周追加する側へ回す
+  if (activeSession.giantSetMode) { addGiantRound(ex.part || 'core'); return; }
   const si  = ex.sets.length;
   const newSet = newEmptySet(ex);
   ex.sets.push(newSet);

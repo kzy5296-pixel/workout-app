@@ -154,6 +154,13 @@ function saveProgStart(d) { save('t101_prog_start', d); }
 function getGymDays()    { return load('t101_restdays', []); }
 function saveGymDays(d)  { save('t101_restdays', d); }
 
+// ワークアウト全体の種目並び順:
+//   'alternate' = 拮抗筋を交互（胸→背中→胸→背中…）※デフォルト
+//   'grouped'   = 部位ごとにまとめる（胸→胸→…→背中→背中…）
+// ジャイアントセット表示は部位ブロック単位なので、このモードの影響を受けない。
+function getExOrderMode()   { return load('t101_ex_order', 'alternate') === 'grouped' ? 'grouped' : 'alternate'; }
+function saveExOrderMode(m) { save('t101_ex_order', m === 'grouped' ? 'grouped' : 'alternate'); }
+
 function getLastBackup()   { return load('t101_backup_date', null); }
 function saveLastBackup(d) { save('t101_backup_date', d); }
 
