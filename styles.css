@@ -1162,3 +1162,39 @@ input[type="date"]:focus { outline: none; border-color: #e8ff00; }
   0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
   100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
 }
+
+/* ===== 設定：トグルスイッチ ===== */
+.setting-switch {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; cursor: pointer; font-size: 14px;
+  -webkit-tap-highlight-color: transparent;
+}
+/* display:none だと VoiceOver・キーボードからフォーカスできなくなるため、
+   見た目だけ隠してフォーカス可能なまま残す */
+.setting-switch input {
+  position: absolute; opacity: 0;
+  width: 0; height: 0; margin: 0;
+  pointer-events: none;
+}
+.setting-switch input:focus-visible + .switch-track {
+  outline: 2px solid #e8ff00; outline-offset: 2px;
+}
+.setting-switch .switch-track {
+  position: relative; flex-shrink: 0;
+  width: 48px; height: 28px; border-radius: 14px;
+  background: #2a2a2a; border: 1px solid #3a3a3a;
+  transition: background 0.2s, border-color 0.2s;
+}
+.setting-switch .switch-thumb {
+  position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #777;
+  transition: transform 0.2s, background 0.2s;
+}
+.setting-switch input:checked + .switch-track {
+  background: #e8ff0033; border-color: #e8ff00;
+}
+.setting-switch input:checked + .switch-track .switch-thumb {
+  background: #e8ff00; transform: translateX(20px);
+}
+.setting-switch input:disabled + .switch-track { opacity: 0.4; }

@@ -51,6 +51,7 @@ Plain HTML/CSS/JS with no framework, no bundler, and no external dependencies. 2
 | `index.html` (~170行) | マークアップのみ（5画面のコンテナ） |
 | `styles.css` (~1150行) | 全スタイル |
 | `js/state.js` (~350行) | `load()`/`save()`、`BODY_PARTS`、`PHASE_ROTATION` |
+| `js/speech.js` (~150行) | インターバル終了の音声アナウンス（既定OFF） |
 | `js/exercises.js` (~1080行) | `EXERCISES`、`VIDEO_LINKS`、`UL_DAYS`、`renderGuide()` |
 | `js/record.js` (~950行) | 記録画面、レストポーズ |
 | `js/analysis.js` (~560行) | `renderAnalysis()`、グラフ、カレンダー |

@@ -129,6 +129,19 @@
     </div>
 
     <div class="divider"></div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:6px;margin-top:16px;">🔊 音声アナウンス</div>
+    <div style="font-size:12px;color:#888;margin-bottom:12px;line-height:1.6;">
+      インターバル終了時に、次のセット内容を読み上げます。ジムではイヤホン推奨。
+    </div>
+    <label class="setting-switch">
+      <span>インターバル終了を読み上げる</span>
+      <input type="checkbox" id="speechToggle" onchange="toggleSpeechSetting(this)">
+      <span class="switch-track"><span class="switch-thumb"></span></span>
+    </label>
+    <div id="speechHint" style="font-size:11px;color:#666;margin:10px 0;line-height:1.6;"></div>
+    <button class="btn btn-outline btn-sm" onclick="testSpeech()" style="margin-bottom:16px;">🔊 テスト再生</button>
+
+    <div class="divider"></div>
     <div style="margin-bottom:8px;font-size:13px;color:#888;">データのバックアップ・復元ができます</div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
       <button class="btn btn-primary" onclick="exportData()">📥 データをエクスポート（JSON）</button>
@@ -184,6 +197,7 @@
 <!-- ====== PR TOAST ====== -->
 <div class="pr-toast" id="pr-toast"></div>
 <script src="./js/state.js"></script>
+<script src="./js/speech.js"></script>
 <script src="./js/exercises.js"></script>
 <script src="./js/record.js"></script>
 <script src="./js/analysis.js"></script>

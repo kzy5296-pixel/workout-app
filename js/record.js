@@ -1122,6 +1122,7 @@ function openSettingsModal() {
     const todayEntry = log.find(e => e.date === todayStr());
     bw.value = todayEntry ? todayEntry.weight : '';
   }
+  syncSpeechSetting();
   renderSnapshotList();
   document.getElementById('settingsModal').classList.add('active');
 }

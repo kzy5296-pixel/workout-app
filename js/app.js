@@ -711,6 +711,9 @@ function _cancelNotification() {
 function startTimer(exName) {
   stopTimer();
   _unlockTimerAudio();
+  // 前回の予約発話が残っていたら破棄し、このユーザー操作のうちに音声を解放しておく
+  cancelSpeech();
+  if (isSpeechEnabled()) unlockSpeech();
 
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
@@ -773,6 +776,8 @@ function timerComplete() {
     });
   }
   showToast('⏱️ インターバル終了！次のセットへ');
+  // アラーム音の5連打（約1.7秒）と被らないよう、鳴り終わってから読み上げる
+  speak(buildRestEndSpeech(exName), 1800);
 }
 
 function stopTimer() {
@@ -785,6 +790,7 @@ function stopTimer() {
 function skipTimer() {
   stopTimer();
   _cancelNotification();
+  cancelSpeech();
   document.getElementById('timerOverlay').classList.remove('active');
 }
 

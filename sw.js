@@ -1,9 +1,10 @@
-const CACHE_NAME = '101training-v50';
+const CACHE_NAME = '101training-v51';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './js/state.js',
+  './js/speech.js',
   './js/exercises.js',
   './js/record.js',
   './js/analysis.js',
