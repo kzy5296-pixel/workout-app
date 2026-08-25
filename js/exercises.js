@@ -119,7 +119,6 @@ const EXERCISES = {
     { name: 'インクラインプレスダウン',           rec: 25, t: ['l'], sets: 3 },
     { name: 'プルオーバー＆エクステンション(軽)', rec: 25, t: ['l'], sets: 2 },
     { name: '自重ディップス',                    rec: 20, t: ['l'], sets: 2 },
-    { name: 'デッドストップトライセプスプレス',   rec: 3,  t: ['h'], sets: 3 },
     { name: 'ナローグリップベンチプレス',         rec: 10, t: ['m'] },
     { name: 'スカルクラッシャー',                rec: 10, t: ['m'] },
     { name: 'オーバーヘッドエクステンション',     rec: 20, t: ['l'] },
@@ -388,6 +387,86 @@ function _filterByRpe(exList) {
   return filtered.length >= REC_EX_PER_PART_MIN ? filtered : exList;
 }
 
+// ブロックを組み替えても入れ替えない「主力種目」。多関節（コンパウンド）中心。
+// 部位×Phaseの候補リストで最初にヒットしたものが1種目目に固定され、重量の推移が途切れない。
+// ヒットしない部位（軽い日の腕など）は候補リストの先頭がそのまま主力扱いになる。
+const ANCHOR_EXERCISES = new Set([
+  // 胸
+  'ベンチプレス', 'ニュートラルGインクラインダンベルプレス', 'ダンベルプレス',
+  'インクラインダンベルプレス', 'インクラインベンチプレス', 'ディップス',
+  'ディップス(ピュアネガティブ)', 'ヘビーリバースグリップインクラインダンベルベンチプレス',
+  'クローズグリップインクラインダンベルベンチプレス',
+  // 背中
+  'トップサイドデッドリフト(重)', 'トップサイドデッドリフト', 'ネガティブオンリーチンニング',
+  'ワンハンドダンベルロウイング', 'ワンハンドロウイング(ネガ)', 'オーバーグリップチンニング',
+  'ベンチサポーティッドダンベルロウ', 'プーリーロウ', 'ラウンドダンベルロウ',
+  'オーバーグリッププルダウン', 'プーリーロウ(軽)', 'スターナムチンニング(SSC)',
+  // 脚
+  'ハックスクワット(重)', 'ブルガリアンスクワット(重)', 'ブルガリアンスクワット(アセンディング)',
+  'ワイドスタンス・スクワット', 'バーベルorマシンハックスクワット', 'スクワット',
+  'ルーマニアンデッドリフト', 'レッグプレス', 'ハックスクワット', 'ブルガリアンスクワット',
+  'ワイドスクワット',
+  // 肩
+  'マッスルスナッチ(重)', 'マッスルスナッチ', 'アーノルドプレス', 'アーノルドプレス(軽)',
+  'ショルダープレス', 'スミスRGフロントプレス', 'アップライトロウ',
+  // 二頭
+  'ワンアームチンニング(ネガティブ片腕)', 'ワンアームチンニング', 'インクラインカール',
+  'バーベルカール', 'ダンベルカール',
+  // 三頭
+  'ネガティブディップス', '自重ディップス', 'ナローグリップベンチプレス',
+  'デッドストップ・トライセプスプレス',
+  // 体幹
+  'アブローラー'
+]);
+
+// その部位・その強度の主力種目。ANCHOR_EXERCISES に載っている中で候補リストの最上位、
+// 1つも載っていない部位（軽い日の腕など）は候補リストの先頭。日をまたいでも必ず同じ種目になる。
+function _anchorExercise(part) {
+  const cands = _filterByRpe(EXERCISES[part] || []);
+  if (cands.length === 0) return null;
+  const i = cands.findIndex(ex => ANCHOR_EXERCISES.has(ex.name));
+  return cands[i >= 0 ? i : 0];
+}
+
+// その部位・その強度で今回使う種目を選ぶ。
+// 主力1種目は固定したまま、補助枠だけを variant 個分ずらして候補リストを一周させる。
+//   例) 補助2枠・候補7種目 → v0:[0,1] v1:[2,3] v2:[4,5] v3:[6,0] …
+// exclude は同じ日にすでに選ばれた種目名（「ディップス」は胸にも三頭にもあるため）。
+// 補助枠にだけ効かせる。主力は exclude より優先するので、呼び出し側で先に確保しておくこと。
+function selectExercises(part, count, variant, exclude) {
+  const cands = _filterByRpe(EXERCISES[part] || []);
+  if (cands.length === 0) return [];
+
+  const anchorEx = _anchorExercise(part);
+  if (count <= 1) return [anchorEx];
+
+  let pool = cands.filter(ex => ex !== anchorEx);
+  if (exclude && exclude.size) {
+    // 除外すると補助枠が埋まらない部位は、重複を許してでも種目数を優先する
+    const avail = pool.filter(ex => !exclude.has(ex.name));
+    if (avail.length >= count - 1) pool = avail;
+  }
+  if (pool.length === 0) return [anchorEx];
+
+  const need = Math.min(count - 1, pool.length);
+  const v    = Math.max(0, variant | 0);
+  const off  = (v * need) % pool.length;
+  const rest = [];
+  for (let i = 0; i < need; i++) rest.push(pool[(off + i) % pool.length]);
+  return [anchorEx].concat(rest);
+}
+
+// 1日分の主力種目を先に押さえる。これを exclude の初期値にすることで、
+// 「胸の補助にディップスが入ったせいで三頭の主力がずれる」といった取り合いを防ぐ。
+function _reserveAnchors(parts) {
+  const used = new Set();
+  parts.forEach(part => {
+    const a = _anchorExercise(part);
+    if (a) used.add(a.name);
+  });
+  return used;
+}
+
 function _defaultExerciseCount(part) {
   if (part === 'legs') return 6;
   if (part === 'shoulders') return 4;
@@ -397,9 +476,12 @@ function _defaultExerciseCount(part) {
 }
 
 function menuExercises(parts) {
-  const list = [];
+  const list    = [];
+  const variant = getMenuVariant().n;
+  const used    = _reserveAnchors(parts);
   parts.forEach(part => {
-    _filterByRpe(EXERCISES[part]).slice(0, _defaultExerciseCount(part)).forEach(ex => {
+    selectExercises(part, _defaultExerciseCount(part), variant, used).forEach(ex => {
+      used.add(ex.name);
       list.push({ name: ex.name, part, rec: ex.rec, bilateral: !!ex.bilateral });
     });
   });
@@ -410,9 +492,12 @@ function buildExercises(parts) {
   const list      = [];
   const intensity = INTENSITY_TYPES[selectedIntensity];
   const numSets   = selectedIntensity === 'light' ? 3 : 2;
+  const variant   = getMenuVariant().n;
+  const used      = _reserveAnchors(parts);
 
   parts.forEach(part => {
-    _filterByRpe(EXERCISES[part]).slice(0, _defaultExerciseCount(part)).forEach(ex => {
+    selectExercises(part, _defaultExerciseCount(part), variant, used).forEach(ex => {
+      used.add(ex.name);
       const prev      = getPrevData(ex.name, ex.bilateral);
       const r         = ex.rec || intensity.recReps;
       const bilateral = !!ex.bilateral;
@@ -452,10 +537,12 @@ function buildExercises(parts) {
 function buildQuickExercises(parts) {
   const list      = [];
   const intensity = INTENSITY_TYPES[selectedIntensity];
+  const used      = new Set();
 
   parts.forEach(part => {
-    const ex = _filterByRpe(EXERCISES[part])[0];
-    if (!ex) return;
+    const ex = _anchorExercise(part);
+    if (!ex || used.has(ex.name)) return;
+    used.add(ex.name);
     const prev      = getPrevData(ex.name, ex.bilateral);
     const r         = ex.rec || intensity.recReps;
     const bilateral = !!ex.bilateral;

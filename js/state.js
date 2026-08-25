@@ -161,6 +161,24 @@ function saveGymDays(d)  { save('t101_restdays', d); }
 function getExOrderMode()   { return load('t101_ex_order', 'alternate') === 'grouped' ? 'grouped' : 'alternate'; }
 function saveExOrderMode(m) { save('t101_ex_order', m === 'grouped' ? 'grouped' : 'alternate'); }
 
+// メニューのバリエーション（ブロック）。
+//   n     = 何回組み替えたか。種目選択のオフセットに使う
+//   since = そのパターンに切り替えた日（マンネリ表示用）
+// 主力種目は固定され、補助種目だけが n に応じて入れ替わる（selectExercises 参照）。
+function getMenuVariant() {
+  const v = load('t101_menu_variant', null);
+  if (v && typeof v === 'object') return { n: Math.max(0, v.n | 0), since: v.since || null };
+  return { n: 0, since: null };
+}
+function saveMenuVariant(n) { save('t101_menu_variant', { n: Math.max(0, n | 0), since: todayStr() }); }
+
+// 今のパターンを何週間使っているか。切り替え日が未記録なら null
+function menuVariantWeeks() {
+  const since = getMenuVariant().since;
+  if (!since) return null;
+  return Math.floor((new Date(todayStr()) - new Date(since)) / 86400000 / 7);
+}
+
 function getLastBackup()   { return load('t101_backup_date', null); }
 function saveLastBackup(d) { save('t101_backup_date', d); }
 
