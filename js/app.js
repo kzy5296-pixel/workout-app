@@ -1033,6 +1033,7 @@ const _saved = getActiveSession();
 if (_saved) activeSession = _saved;
 selectedSplit = load('t101_split', 2);
 initDefaultPRs();
+applyGymDayPresets();
 // iOSにサイトデータを勝手に消させないよう永続ストレージを要求
 if (navigator.storage && navigator.storage.persist) {
   navigator.storage.persist().catch(() => {});

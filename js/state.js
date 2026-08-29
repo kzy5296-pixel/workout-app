@@ -279,6 +279,36 @@ function toggleGymDay(dateStr) {
 
 function isGymDay(dateStr) { return getGymDays().includes(dateStr); }
 
+// 事前に分かっている休み（＝ジムに行ける日）をアプリ側から一度だけ登録する。
+// 適用済みのIDは t101_gymday_presets に残るので、あとから手で外した日が
+// アプリを開き直すたびに復活することはない。
+const GYM_DAY_PRESETS = [
+  {
+    id: '2026-09',
+    days: [
+      '2026-09-01', '2026-09-04', '2026-09-08', '2026-09-11',
+      '2026-09-15', '2026-09-18',
+      '2026-09-21', '2026-09-22', '2026-09-23', '2026-09-24',
+      '2026-09-27'
+    ]
+  }
+];
+
+function applyGymDayPresets() {
+  const applied = load('t101_gymday_presets', []);
+  let days = null;
+  GYM_DAY_PRESETS.forEach(preset => {
+    if (applied.includes(preset.id)) return;
+    if (!days) days = getGymDays();
+    preset.days.forEach(d => { if (!days.includes(d)) days.push(d); });
+    applied.push(preset.id);
+  });
+  if (!days) return;
+  days.sort();
+  saveGymDays(days);
+  save('t101_gymday_presets', applied);
+}
+
 function getAvailableDaysThisMonth() {
   const now   = new Date();
   const year  = now.getFullYear();

@@ -1352,6 +1352,7 @@ async function clearAllData() {
   localStorage.removeItem('t101_history');
   localStorage.removeItem('t101_prs');
   localStorage.removeItem('t101_restdays');
+  localStorage.removeItem('t101_gymday_presets');
   localStorage.removeItem('t101_session');
   localStorage.removeItem('t101_big3');
   localStorage.removeItem('t101_prog_start');
