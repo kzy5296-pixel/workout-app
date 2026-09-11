@@ -2,135 +2,144 @@
 //  EXERCISE DATABASE
 // ============================================================
 
-// t: RPEタグ ['h'=高重量, 'm'=中重量, 'l'=低重量]  bilateral: 左右別記録
+// t:   RPEタグ ['h'=高重量, 'm'=中重量, 'l'=低重量]
+// pat: 動作パターン。メニューの枠（PART_SLOTS）と対応させて、組み替えても網羅性が崩れないようにする
+//   胸   press=多関節プレス / fly=単関節フライ・ストレッチ
+//   背中 hinge=デッドリフト系 / vpull=垂直引き / hpull=水平引き / shrug=僧帽
+//   脚   squat=膝優位の多関節 / hinge=股関節優位 / quad=四頭単関節 / ham=ハム単関節 / calf=下腿
+//   肩   press=プレス系 / side=側部 / rear=後部 / front=前部
+//   二頭 stretch=ストレッチ位 / mid=中間位 / contract=収縮位（POF）
+//   三頭 press=多関節 / ext=エクステンション（ストレッチ位）/ pushdown=プレスダウン（収縮位）
+//   体幹 antiflex=アンチ伸展 / flex=体幹屈曲 / hipflex=股関節屈曲 / rot=回旋
+// bilateral: 左右別記録
 const EXERCISES = {
   chest: [
-    { name: 'ヘビーダンベルフライ',                 rec: 3,  t: ['h'] },
-    { name: 'ヘビーリバースグリップインクラインダンベルベンチプレス', rec: 6, t: ['h'] },
-    { name: 'ディップス(ピュアネガティブ)',          rec: 6,  t: ['h'] },
-    { name: 'ダンベルフライ',                      rec: 10, t: ['m'] },
-    { name: 'インクラインダンベルフライ',            rec: 10, t: ['m'] },
-    { name: 'ダンベルプルオーバー',                 rec: 10, t: ['m'] },
-    { name: 'ベンチプレス',                        rec: 5,  t: ['h'] },
-    { name: 'ニュートラルGインクラインダンベルプレス', rec: 5,  t: ['h'] },
-    { name: 'ダンベルプレス',                      rec: 10, t: ['m'] },
-    { name: 'インクラインダンベルプレス',            rec: 10, t: ['m'] },
-    { name: 'インクラインベンチプレス',              rec: 10, t: ['m'] },
-    { name: 'ディップス',                          rec: 10, t: ['m'] },
-    { name: 'ポールケーブルインクラインフライ',      rec: 25, t: ['l'] },
-    { name: 'ケーブルクロス',                      rec: 25, t: ['l'] },
-    { name: 'クローズグリップインクラインダンベルベンチプレス', rec: 25, t: ['l'] },
-    { name: 'ケーブルクロスオーバー',               rec: 25, t: ['l'] },
-    { name: 'ペックデックフライ',                   rec: 25, t: ['l'] },
+    { name: 'ヘビーダンベルフライ',                 rec: 3,  t: ['h'], pat: 'fly'   },
+    { name: 'ヘビーリバースグリップインクラインダンベルベンチプレス', rec: 6, t: ['h'], pat: 'press' },
+    { name: 'ディップス(ピュアネガティブ)',          rec: 6,  t: ['h'], pat: 'press' },
+    { name: 'ダンベルフライ',                      rec: 10, t: ['m'], pat: 'fly'   },
+    { name: 'インクラインダンベルフライ',            rec: 10, t: ['m'], pat: 'fly'   },
+    { name: 'ダンベルプルオーバー',                 rec: 10, t: ['m'], pat: 'fly'   },
+    { name: 'ベンチプレス',                        rec: 5,  t: ['h'], pat: 'press' },
+    { name: 'ニュートラルGインクラインダンベルプレス', rec: 5,  t: ['h'], pat: 'press' },
+    { name: 'ダンベルプレス',                      rec: 10, t: ['m'], pat: 'press' },
+    { name: 'インクラインダンベルプレス',            rec: 10, t: ['m'], pat: 'press' },
+    { name: 'インクラインベンチプレス',              rec: 10, t: ['m'], pat: 'press' },
+    { name: 'ディップス',                          rec: 10, t: ['m'], pat: 'press' },
+    { name: 'ポールケーブルインクラインフライ',      rec: 25, t: ['l'], pat: 'fly'   },
+    { name: 'ケーブルクロス',                      rec: 25, t: ['l'], pat: 'fly'   },
+    { name: 'クローズグリップインクラインダンベルベンチプレス', rec: 25, t: ['l'], pat: 'press' },
+    { name: 'ケーブルクロスオーバー',               rec: 25, t: ['l'], pat: 'fly'   },
+    { name: 'ペックデックフライ',                   rec: 25, t: ['l'], pat: 'fly'   },
   ],
   back: [
-    { name: 'トップサイドデッドリフト(重)',          rec: 6,  t: ['h'] },
-    { name: 'ネガティブオンリーチンニング',          rec: 6,  t: ['h'] },
-    { name: 'ワンハンドダンベルロウイング',          rec: 6,  t: ['h'], bilateral: true },
-    { name: 'ネガティブオンリースターナムチンニング', rec: 6,  t: ['h'] },
-    { name: 'ネガティブオンリー肩甲下筋チンニング',  rec: 6,  t: ['h'] },
-    { name: 'ワンハンドロウイング(ネガ)',            rec: 6,  t: ['h'], bilateral: true },
-    { name: 'サポーティッドワンハンドシュラッグ',   rec: 6,  t: ['h'], bilateral: true },
-    { name: 'トップサイドデッドリフト',             rec: 8,  t: ['m'] },
-    { name: 'オーバーグリップチンニング',            rec: 10, t: ['m'] },
-    { name: 'ベンチサポーティッドダンベルロウ',      rec: 10, t: ['m'], bilateral: true },
-    { name: 'プーリーロウ',                         rec: 10, t: ['m'] },
-    { name: 'スターナムチンニング(SSC)',             rec: 10, t: ['m'] },
-    { name: '肩甲下筋チンニング',                   rec: 7,  t: ['m'] },
-    { name: 'ラウンドダンベルロウ',                 rec: 10, t: ['m'], bilateral: true },
-    { name: 'オーバーグリッププルダウン',            rec: 25, t: ['l'] },
-    { name: 'プーリーロウ(軽)',                     rec: 25, t: ['l'] },
-    { name: 'プローンインクラインスミスシュラッグ',  rec: 25, t: ['l'] },
-    { name: '山本スペシャルチンニング',              rec: 8,  t: ['l'] },
+    { name: 'トップサイドデッドリフト(重)',          rec: 6,  t: ['h'], pat: 'hinge' },
+    { name: 'ネガティブオンリーチンニング',          rec: 6,  t: ['h'], pat: 'vpull' },
+    { name: 'ワンハンドダンベルロウイング',          rec: 6,  t: ['h'], pat: 'hpull', bilateral: true },
+    { name: 'ネガティブオンリースターナムチンニング', rec: 6,  t: ['h'], pat: 'vpull' },
+    { name: 'ネガティブオンリー肩甲下筋チンニング',  rec: 6,  t: ['h'], pat: 'vpull' },
+    { name: 'ワンハンドロウイング(ネガ)',            rec: 6,  t: ['h'], pat: 'hpull', bilateral: true },
+    { name: 'サポーティッドワンハンドシュラッグ',   rec: 6,  t: ['h'], pat: 'shrug', bilateral: true },
+    { name: 'トップサイドデッドリフト',             rec: 8,  t: ['m'], pat: 'hinge' },
+    { name: 'オーバーグリップチンニング',            rec: 10, t: ['m'], pat: 'vpull' },
+    { name: 'ベンチサポーティッドダンベルロウ',      rec: 10, t: ['m'], pat: 'hpull', bilateral: true },
+    { name: 'プーリーロウ',                         rec: 10, t: ['m'], pat: 'hpull' },
+    { name: 'スターナムチンニング(SSC)',             rec: 10, t: ['m'], pat: 'vpull' },
+    { name: '肩甲下筋チンニング',                   rec: 7,  t: ['m'], pat: 'vpull' },
+    { name: 'ラウンドダンベルロウ',                 rec: 10, t: ['m'], pat: 'hpull', bilateral: true },
+    { name: 'オーバーグリッププルダウン',            rec: 25, t: ['l'], pat: 'vpull' },
+    { name: 'プーリーロウ(軽)',                     rec: 25, t: ['l'], pat: 'hpull' },
+    { name: 'プローンインクラインスミスシュラッグ',  rec: 25, t: ['l'], pat: 'shrug' },
+    { name: '山本スペシャルチンニング',              rec: 8,  t: ['l'], pat: 'vpull' },
   ],
   legs: [
-    { name: 'ブルガリアンスクワット(アセンディング)', rec: 10, t: ['m'], bilateral: true, sets: 3 },
-    { name: 'ワイドスタンス・スクワット',             rec: 12, t: ['m'], sets: 2 },
-    { name: '1と4分の1レッグエクステンション',       rec: 10, t: ['m'], sets: 2 },
-    { name: '1と2分の1レッグカール',                 rec: 12, t: ['m'], sets: 2 },
-    { name: 'ダンベル・ワンレッグカーフレイズ',       rec: 12, t: ['m'], bilateral: true, sets: 2 },
-    { name: 'シーテッドカーフレイズ',                 rec: 12, t: ['m'], sets: 1 },
-    { name: 'ハックスクワット(重)',                   rec: 3,  t: ['h'], sets: 4 },
-    { name: 'ブルガリアンスクワット(重)',             rec: 7,  t: ['h'], bilateral: true, sets: 2 },
-    { name: 'レッグエクステンション(重)',             rec: 7,  t: ['h'], sets: 2 },
-    { name: 'レッグカール(重)',                       rec: 7,  t: ['h'], sets: 2 },
-    { name: 'レッグプレスマシンカーフレイズ(一人ネガティブ)', rec: 8, t: ['h'], sets: 2 },
-    { name: 'シーテッドカーフレイズ(重)',             rec: 8,  t: ['h'], sets: 1 },
-    { name: 'バーベルorマシンハックスクワット',       rec: 30, t: ['l'], sets: 3 },
-    { name: 'シシースクワット',                       rec: 30, t: ['l'], sets: 2 },
-    { name: 'ボール・ハムストリングカール',           rec: 30, t: ['l'], sets: 2 },
-    { name: 'ヒップスラスト',                         rec: 30, t: ['l'], sets: 2 },
-    { name: 'ワンレッグカーフレイズ',                 rec: 30, t: ['l'], bilateral: true, sets: 2 },
-    { name: 'シーテッドカーフレイズ(軽)',             rec: 30, t: ['l'], sets: 2 },
-    { name: 'スクワット',               rec: 10, t: ['h','m'] },
-    { name: 'ルーマニアンデッドリフト',  rec: 10, t: ['h','m'] },
-    { name: 'レッグプレス',             rec: 12, t: ['m']     },
-    { name: 'ハックスクワット',         rec: 12, t: ['m']     },
-    { name: 'ブルガリアンスクワット',   rec: 10, t: ['m','l'], bilateral: true },
-    { name: 'ワイドスクワット',         rec: 12, t: ['l','m'] },
-    { name: 'ノルディックハムカール',   rec: 8,  t: ['l','m'] },
-    { name: 'レッグカール',             rec: 12, t: ['l']     },
-    { name: 'レッグエクステンション',   rec: 15, t: ['l']     },
-    { name: 'カーフレイズ',             rec: 15, t: ['l']     }
+    { name: 'ブルガリアンスクワット(アセンディング)', rec: 10, t: ['m'], pat: 'squat', bilateral: true, sets: 3 },
+    { name: 'ワイドスタンス・スクワット',             rec: 12, t: ['m'], pat: 'squat', sets: 2 },
+    { name: '1と4分の1レッグエクステンション',       rec: 10, t: ['m'], pat: 'quad',  sets: 2 },
+    { name: '1と2分の1レッグカール',                 rec: 12, t: ['m'], pat: 'ham',   sets: 2 },
+    { name: 'ダンベル・ワンレッグカーフレイズ',       rec: 12, t: ['m'], pat: 'calf',  bilateral: true, sets: 2 },
+    { name: 'シーテッドカーフレイズ',                 rec: 12, t: ['m'], pat: 'calf',  sets: 1 },
+    { name: 'ハックスクワット(重)',                   rec: 3,  t: ['h'], pat: 'squat', sets: 4 },
+    { name: 'ブルガリアンスクワット(重)',             rec: 7,  t: ['h'], pat: 'squat', bilateral: true, sets: 2 },
+    { name: 'レッグエクステンション(重)',             rec: 7,  t: ['h'], pat: 'quad',  sets: 2 },
+    { name: 'レッグカール(重)',                       rec: 7,  t: ['h'], pat: 'ham',   sets: 2 },
+    { name: 'レッグプレスマシンカーフレイズ(一人ネガティブ)', rec: 8, t: ['h'], pat: 'calf', sets: 2 },
+    { name: 'シーテッドカーフレイズ(重)',             rec: 8,  t: ['h'], pat: 'calf',  sets: 1 },
+    { name: 'バーベルorマシンハックスクワット',       rec: 30, t: ['l'], pat: 'squat', sets: 3 },
+    { name: 'シシースクワット',                       rec: 30, t: ['l'], pat: 'quad',  sets: 2 },
+    { name: 'ボール・ハムストリングカール',           rec: 30, t: ['l'], pat: 'ham',   sets: 2 },
+    { name: 'ヒップスラスト',                         rec: 30, t: ['l'], pat: 'hinge', sets: 2 },
+    { name: 'ワンレッグカーフレイズ',                 rec: 30, t: ['l'], pat: 'calf',  bilateral: true, sets: 2 },
+    { name: 'シーテッドカーフレイズ(軽)',             rec: 30, t: ['l'], pat: 'calf',  sets: 2 },
+    { name: 'スクワット',               rec: 10, t: ['h','m'], pat: 'squat' },
+    { name: 'ルーマニアンデッドリフト',  rec: 10, t: ['h','m'], pat: 'hinge' },
+    { name: 'レッグプレス',             rec: 12, t: ['m'],     pat: 'squat' },
+    { name: 'ハックスクワット',         rec: 12, t: ['m'],     pat: 'squat' },
+    { name: 'ブルガリアンスクワット',   rec: 10, t: ['m','l'], pat: 'squat', bilateral: true },
+    { name: 'ワイドスクワット',         rec: 12, t: ['l','m'], pat: 'squat' },
+    { name: 'ノルディックハムカール',   rec: 8,  t: ['l','m'], pat: 'ham'   },
+    { name: 'レッグカール',             rec: 12, t: ['l'],     pat: 'ham'   },
+    { name: 'レッグエクステンション',   rec: 15, t: ['l'],     pat: 'quad'  },
+    { name: 'カーフレイズ',             rec: 15, t: ['l'],     pat: 'calf'  }
   ],
   shoulders: [
-    { name: 'マッスルスナッチ',                   rec: 8,  t: ['m']     },
-    { name: 'アーノルドプレス',                   rec: 10, t: ['m']     },
-    { name: 'インクラインサイドレイズ',            rec: 10, t: ['m'],     bilateral: true },
-    { name: 'サイドライイングリアレイズ',          rec: 10, t: ['m'],     bilateral: true },
-    { name: 'マッスルスナッチ(重)',                rec: 5,  t: ['h']     },
-    { name: 'インクラインサイドレイズ(重)',        rec: 3,  t: ['h'],     bilateral: true },
-    { name: 'サイドライイングリアレイズ(重)',      rec: 3,  t: ['h'],     bilateral: true },
-    { name: 'インクラインフロントレイズ(重)',      rec: 3,  t: ['h'],     bilateral: true },
-    { name: 'シーテッドサイドレイズ',              rec: 12, t: ['l'],     bilateral: true },
-    { name: 'インクラインフロントレイズ',          rec: 12, t: ['l'],     bilateral: true },
-    { name: 'ベンチサポーティッドリアレイズ',      rec: 12, t: ['l'],     bilateral: true },
-    { name: 'アーノルドプレス(軽)',                rec: 12, t: ['l']     },
-    { name: 'SSC高重量サイドレイズ',              rec: 7,  t: ['h'],     bilateral: true },
-    { name: 'シーテッドサイドレイズ(山本SP)',      rec: 6,  t: ['h'],     bilateral: true },
-    { name: 'ショルダープレス',                   rec: 10, t: ['m']     },
-    { name: 'スミスRGフロントプレス',             rec: 10, t: ['m']     },
-    { name: 'アップライトロウ',                   rec: 10, t: ['m']     },
-    { name: 'ロープリアレイズ',                   rec: 15, t: ['l']     },
-    { name: 'フェイスプル',                       rec: 15, t: ['l']     },
-    { name: 'サイドレイズ',                       rec: 20, t: ['l'],     bilateral: true },
+    { name: 'マッスルスナッチ',                   rec: 8,  t: ['m'], pat: 'press' },
+    { name: 'アーノルドプレス',                   rec: 10, t: ['m'], pat: 'press' },
+    { name: 'インクラインサイドレイズ',            rec: 10, t: ['m'], pat: 'side',  bilateral: true },
+    { name: 'サイドライイングリアレイズ',          rec: 10, t: ['m'], pat: 'rear',  bilateral: true },
+    { name: 'マッスルスナッチ(重)',                rec: 5,  t: ['h'], pat: 'press' },
+    { name: 'インクラインサイドレイズ(重)',        rec: 3,  t: ['h'], pat: 'side',  bilateral: true },
+    { name: 'サイドライイングリアレイズ(重)',      rec: 3,  t: ['h'], pat: 'rear',  bilateral: true },
+    { name: 'インクラインフロントレイズ(重)',      rec: 3,  t: ['h'], pat: 'front', bilateral: true },
+    { name: 'シーテッドサイドレイズ',              rec: 12, t: ['l'], pat: 'side',  bilateral: true },
+    { name: 'インクラインフロントレイズ',          rec: 12, t: ['l'], pat: 'front', bilateral: true },
+    { name: 'ベンチサポーティッドリアレイズ',      rec: 12, t: ['l'], pat: 'rear',  bilateral: true },
+    { name: 'アーノルドプレス(軽)',                rec: 12, t: ['l'], pat: 'press' },
+    { name: 'SSC高重量サイドレイズ',              rec: 7,  t: ['h'], pat: 'side',  bilateral: true },
+    { name: 'シーテッドサイドレイズ(山本SP)',      rec: 6,  t: ['h'], pat: 'side',  bilateral: true },
+    { name: 'ショルダープレス',                   rec: 10, t: ['m'], pat: 'press' },
+    { name: 'スミスRGフロントプレス',             rec: 10, t: ['m'], pat: 'press' },
+    { name: 'アップライトロウ',                   rec: 10, t: ['m'], pat: 'side'  },
+    { name: 'ロープリアレイズ',                   rec: 15, t: ['l'], pat: 'rear'  },
+    { name: 'フェイスプル',                       rec: 15, t: ['l'], pat: 'rear'  },
+    { name: 'サイドレイズ',                       rec: 20, t: ['l'], pat: 'side',  bilateral: true },
   ],
   biceps: [
-    { name: 'ワンアームチンニング(ネガティブ片腕)', rec: 5,  t: ['h'], sets: 2, bilateral: true },
-    { name: 'ワンアームケーブルカール(一人ネガティブ)', rec: 6, t: ['h'], sets: 2, bilateral: true },
-    { name: 'インクラインカール',            rec: 9,  t: ['m'], sets: 2 },
-    { name: 'インクラインハンマーカール',    rec: 7,  t: ['m'], sets: 1 },
-    { name: '3wayダンベルカール',           rec: 23, t: ['l'], sets: 2 },
-    { name: 'スミスマシンドラッグカール',    rec: 28, t: ['l'], sets: 2 },
-    { name: 'インクラインカール(軽)',        rec: 18, t: ['l'], sets: 2 },
-    { name: 'ワンアームチンニング',         rec: 9,  t: ['h'], sets: 2, bilateral: true },
-    { name: 'ワイドグリップバーベルカール',  rec: 10, t: ['h'], sets: 1 },
-    { name: 'バーベルカール',               rec: 10, t: ['m'], sets: 2 },
-    { name: 'ダンベルカール',               rec: 10, t: ['m'], sets: 2 },
-    { name: 'ワンアームケーブルカール',      rec: 17, t: ['l'], sets: 2, bilateral: true },
-    { name: 'コンセントレーションカール',    rec: 17, t: ['l'], sets: 2, bilateral: true },
+    { name: 'ワンアームチンニング(ネガティブ片腕)', rec: 5,  t: ['h'], pat: 'mid',      sets: 2, bilateral: true },
+    { name: 'ワンアームケーブルカール(一人ネガティブ)', rec: 6, t: ['h'], pat: 'contract', sets: 2, bilateral: true },
+    { name: 'インクラインカール',            rec: 9,  t: ['m'], pat: 'stretch',  sets: 2 },
+    { name: 'インクラインハンマーカール',    rec: 7,  t: ['m'], pat: 'stretch',  sets: 1 },
+    { name: '3wayダンベルカール',           rec: 23, t: ['l'], pat: 'mid',      sets: 2 },
+    { name: 'スミスマシンドラッグカール',    rec: 28, t: ['l'], pat: 'contract', sets: 2 },
+    { name: 'インクラインカール(軽)',        rec: 18, t: ['l'], pat: 'stretch',  sets: 2 },
+    { name: 'ワンアームチンニング',         rec: 9,  t: ['h'], pat: 'mid',      sets: 2, bilateral: true },
+    { name: 'ワイドグリップバーベルカール',  rec: 10, t: ['h'], pat: 'mid',      sets: 1 },
+    { name: 'バーベルカール',               rec: 10, t: ['m'], pat: 'mid',      sets: 2 },
+    { name: 'ダンベルカール',               rec: 10, t: ['m'], pat: 'mid',      sets: 2 },
+    { name: 'ワンアームケーブルカール',      rec: 17, t: ['l'], pat: 'contract', sets: 2, bilateral: true },
+    { name: 'コンセントレーションカール',    rec: 17, t: ['l'], pat: 'contract', sets: 2, bilateral: true },
   ],
   triceps: [
-    { name: 'ネガティブディップス',               rec: 5,  t: ['h'], sets: 2 },
-    { name: 'デッドストップ・トライセプスプレス', rec: 3,  t: ['h'], sets: 3 },
-    { name: 'インクラインプレスダウン(重)',        rec: 3,  t: ['h'], sets: 3 },
-    { name: 'ディップス',                        rec: 6,  t: ['m'], sets: 2 },
-    { name: 'プルオーバー＆エクステンション',     rec: 10, t: ['m'], sets: 2 },
-    { name: 'インクラインプレスダウン',           rec: 25, t: ['l'], sets: 3 },
-    { name: 'プルオーバー＆エクステンション(軽)', rec: 25, t: ['l'], sets: 2 },
-    { name: '自重ディップス',                    rec: 20, t: ['l'], sets: 2 },
-    { name: 'ナローグリップベンチプレス',         rec: 10, t: ['m'] },
-    { name: 'スカルクラッシャー',                rec: 10, t: ['m'] },
-    { name: 'オーバーヘッドエクステンション',     rec: 20, t: ['l'] },
+    { name: 'ネガティブディップス',               rec: 5,  t: ['h'], pat: 'press',    sets: 2 },
+    { name: 'デッドストップ・トライセプスプレス', rec: 3,  t: ['h'], pat: 'press',    sets: 3 },
+    { name: 'インクラインプレスダウン(重)',        rec: 3,  t: ['h'], pat: 'pushdown', sets: 3 },
+    { name: 'ディップス',                        rec: 6,  t: ['m'], pat: 'press',    sets: 2 },
+    { name: 'プルオーバー＆エクステンション',     rec: 10, t: ['m'], pat: 'ext',      sets: 2 },
+    { name: 'インクラインプレスダウン',           rec: 25, t: ['l'], pat: 'pushdown', sets: 3 },
+    { name: 'プルオーバー＆エクステンション(軽)', rec: 25, t: ['l'], pat: 'ext',      sets: 2 },
+    { name: '自重ディップス',                    rec: 20, t: ['l'], pat: 'press',    sets: 2 },
+    { name: 'ナローグリップベンチプレス',         rec: 10, t: ['m'], pat: 'press'    },
+    { name: 'スカルクラッシャー',                rec: 10, t: ['m'], pat: 'ext'       },
+    { name: 'オーバーヘッドエクステンション',     rec: 20, t: ['l'], pat: 'ext'       },
   ],
   core: [
-    { name: 'アブローラー',              rec: 15, t: ['m','l'] },
-    { name: 'V字シットアップ',           rec: 10, t: ['m']     },
-    { name: 'インクラインリバースクランチ',rec: 12, t: ['m','l'] },
-    { name: 'レッグレイズ',              rec: 15, t: ['l','m'] },
-    { name: 'バイシクルクランチ',        rec: 15, t: ['l']     },
-    { name: 'クランチ',                  rec: 20, t: ['l']     },
-    { name: 'プランク',                  rec: 30, t: ['l']     }
+    { name: 'アブローラー',              rec: 15, t: ['m','l'], pat: 'antiflex' },
+    { name: 'V字シットアップ',           rec: 10, t: ['m'],     pat: 'flex'     },
+    { name: 'インクラインリバースクランチ',rec: 12, t: ['m','l'], pat: 'hipflex' },
+    { name: 'レッグレイズ',              rec: 15, t: ['l','m'], pat: 'hipflex'  },
+    { name: 'バイシクルクランチ',        rec: 15, t: ['l'],     pat: 'rot'      },
+    { name: 'クランチ',                  rec: 20, t: ['l'],     pat: 'flex'     },
+    { name: 'プランク',                  rec: 30, t: ['l'],     pat: 'antiflex' }
   ]
 };
 
@@ -387,73 +396,105 @@ function _filterByRpe(exList) {
   return filtered.length >= REC_EX_PER_PART_MIN ? filtered : exList;
 }
 
-// ブロックを組み替えても入れ替えない「主力種目」。多関節（コンパウンド）中心。
-// 部位×Phaseの候補リストで最初にヒットしたものが1種目目に固定され、重量の推移が途切れない。
-// ヒットしない部位（軽い日の腕など）は候補リストの先頭がそのまま主力扱いになる。
-const ANCHOR_EXERCISES = new Set([
-  // 胸
-  'ベンチプレス', 'ニュートラルGインクラインダンベルプレス', 'ダンベルプレス',
-  'インクラインダンベルプレス', 'インクラインベンチプレス', 'ディップス',
-  'ディップス(ピュアネガティブ)', 'ヘビーリバースグリップインクラインダンベルベンチプレス',
-  'クローズグリップインクラインダンベルベンチプレス',
-  // 背中
-  'トップサイドデッドリフト(重)', 'トップサイドデッドリフト', 'ネガティブオンリーチンニング',
-  'ワンハンドダンベルロウイング', 'ワンハンドロウイング(ネガ)', 'オーバーグリップチンニング',
-  'ベンチサポーティッドダンベルロウ', 'プーリーロウ', 'ラウンドダンベルロウ',
-  'オーバーグリッププルダウン', 'プーリーロウ(軽)', 'スターナムチンニング(SSC)',
-  // 脚
-  'ハックスクワット(重)', 'ブルガリアンスクワット(重)', 'ブルガリアンスクワット(アセンディング)',
-  'ワイドスタンス・スクワット', 'バーベルorマシンハックスクワット', 'スクワット',
-  'ルーマニアンデッドリフト', 'レッグプレス', 'ハックスクワット', 'ブルガリアンスクワット',
-  'ワイドスクワット',
-  // 肩
-  'マッスルスナッチ(重)', 'マッスルスナッチ', 'アーノルドプレス', 'アーノルドプレス(軽)',
-  'ショルダープレス', 'スミスRGフロントプレス', 'アップライトロウ',
-  // 二頭
-  'ワンアームチンニング(ネガティブ片腕)', 'ワンアームチンニング', 'インクラインカール',
-  'バーベルカール', 'ダンベルカール',
-  // 三頭
-  'ネガティブディップス', '自重ディップス', 'ナローグリップベンチプレス',
-  'デッドストップ・トライセプスプレス',
-  // 体幹
-  'アブローラー'
-]);
+// ============================================================
+//  種目セレクション（役割ベース）
+// ============================================================
+// メニューの各枠に「動作パターン上の役割」を割り当て、その役割の候補の中だけで
+// 組み替える。こうすると何パターン目でも
+//   胸   = プレス2＋フライ1（プレスだけ3種目、フライだけ2種目にならない）
+//   背中 = デッド系＋水平引き＋垂直引き
+//   脚   = スクワット系2＋股関節＋四頭＋ハム＋カーフ（カーフ抜けが起きない）
+//   肩   = プレス＋側部＋後部＋前部
+// が必ず揃う。以前は候補リストの並び順を数値でずらしていただけなので、
+// パターンによって役割の偏りが出ていた。
+//
+// 枠の書き方（0番は主力なので ANCHORS 固定）
+//   'ham'                       → その役割から必ず選ぶ（網羅性優先。候補ゼロなら余りから補充）
+//   ['front','press','side']    → この優先順で候補をまとめて1周させる（バリエーション優先）
+const PART_SLOTS = {
+  chest:     [null, 'press', 'fly'],
+  back:      [null, ['hpull', 'shrug'], 'vpull'],
+  legs:      [null, 'squat', 'hinge', 'quad', 'ham', 'calf'],
+  shoulders: [null, 'side', 'rear', ['front', 'press', 'rear']],
+  biceps:    [null, ['contract', 'mid', 'stretch'], 'stretch'],
+  triceps:   [null, ['ext', 'pushdown', 'press'], 'pushdown'],
+  core:      [null, ['hipflex', 'flex', 'rot'], ['flex', 'rot', 'antiflex']]
+};
 
-// その部位・その強度の主力種目。ANCHOR_EXERCISES に載っている中で候補リストの最上位、
-// 1つも載っていない部位（軽い日の腕など）は候補リストの先頭。日をまたいでも必ず同じ種目になる。
+// 主力種目（部位 × Phase）。組み替えても動かないので、重量の推移とPRの比較が途切れない。
+// 以前は「候補リストで最初にヒットした多関節種目」だったため、DBの並び順を触ると
+// 主力が入れ替わり、ベンチプレスのように補助枠へ落ちて出入りする種目が出ていた。
+const ANCHORS = {
+  chest:     { heavy: 'ベンチプレス',                      medium: 'ダンベルプレス',                     light: 'クローズグリップインクラインダンベルベンチプレス' },
+  back:      { heavy: 'トップサイドデッドリフト(重)',       medium: 'トップサイドデッドリフト',            light: 'オーバーグリッププルダウン' },
+  legs:      { heavy: 'ハックスクワット(重)',              medium: 'ブルガリアンスクワット(アセンディング)', light: 'バーベルorマシンハックスクワット' },
+  shoulders: { heavy: 'マッスルスナッチ(重)',              medium: 'マッスルスナッチ',                   light: 'アーノルドプレス(軽)' },
+  biceps:    { heavy: 'ワンアームチンニング(ネガティブ片腕)', medium: 'インクラインカール',                 light: '3wayダンベルカール' },
+  triceps:   { heavy: 'ネガティブディップス',              medium: 'ディップス',                        light: '自重ディップス' },
+  core:      { heavy: 'アブローラー',                     medium: 'アブローラー',                      light: 'アブローラー' }
+};
+
+// その部位・その強度の主力種目。ANCHORS の指定がPhaseの候補に無いときだけ
+// 多関節種目（胸press/背中hinge…）へフォールバックする。
+const _ANCHOR_FALLBACK_PAT = {
+  chest: 'press', back: 'hinge', legs: 'squat', shoulders: 'press',
+  biceps: 'mid', triceps: 'press', core: 'antiflex'
+};
+
 function _anchorExercise(part) {
   const cands = _filterByRpe(EXERCISES[part] || []);
   if (cands.length === 0) return null;
-  const i = cands.findIndex(ex => ANCHOR_EXERCISES.has(ex.name));
-  return cands[i >= 0 ? i : 0];
+  const want = (ANCHORS[part] || {})[selectedIntensity];
+  return cands.find(ex => ex.name === want)
+      || cands.find(ex => ex.pat === _ANCHOR_FALLBACK_PAT[part])
+      || cands[0];
+}
+
+// 1つの枠の候補プール。役割の書き方は PART_SLOTS のコメント参照。
+function _slotPool(slot, cands, used) {
+  const avail = cands.filter(ex => !used.has(ex.name));
+  if (slot == null) return avail;                                  // 役割指定なし = 余り全部
+  if (typeof slot === 'string') {                                  // 網羅性優先：空のときだけ余りへ
+    const g = avail.filter(ex => ex.pat === slot);
+    return g.length ? g : avail;
+  }
+  const pool = [];                                                 // バリエーション優先：優先順に連結
+  slot.forEach(pat => avail.forEach(ex => { if (ex.pat === pat && !pool.includes(ex)) pool.push(ex); }));
+  return pool.length ? pool : avail;
 }
 
 // その部位・その強度で今回使う種目を選ぶ。
-// 主力1種目は固定したまま、補助枠だけを variant 個分ずらして候補リストを一周させる。
-//   例) 補助2枠・候補7種目 → v0:[0,1] v1:[2,3] v2:[4,5] v3:[6,0] …
+// 0番の主力は variant に関係なく固定。1番以降は枠ごとに独立して1周する
+// （枠A=3候補・枠B=2候補なら6パターンで元に戻る）。
 // exclude は同じ日にすでに選ばれた種目名（「ディップス」は胸にも三頭にもあるため）。
-// 補助枠にだけ効かせる。主力は exclude より優先するので、呼び出し側で先に確保しておくこと。
 function selectExercises(part, count, variant, exclude) {
   const cands = _filterByRpe(EXERCISES[part] || []);
   if (cands.length === 0) return [];
 
   const anchorEx = _anchorExercise(part);
-  if (count <= 1) return [anchorEx];
+  const picked   = [anchorEx];
+  if (count <= 1) return picked;
 
-  let pool = cands.filter(ex => ex !== anchorEx);
-  if (exclude && exclude.size) {
-    // 除外すると補助枠が埋まらない部位は、重複を許してでも種目数を優先する
-    const avail = pool.filter(ex => !exclude.has(ex.name));
-    if (avail.length >= count - 1) pool = avail;
+  // 主力は exclude より優先する（呼び出し側で _reserveAnchors 済み）
+  const used = new Set(exclude || []);
+  used.delete(anchorEx.name);
+  const usedHere = new Set([anchorEx.name]);
+
+  const slots = PART_SLOTS[part] || [];
+  const v     = Math.max(0, variant | 0);
+
+  for (let i = 1; i < count; i++) {
+    const slot = i < slots.length ? slots[i] : null;
+    let pool   = _slotPool(slot, cands, new Set([...used, ...usedHere]));
+    // 他部位との重複を避けると枠が埋まらない部位は、重複を許してでも種目数を優先する
+    if (pool.length === 0) pool = _slotPool(slot, cands, usedHere);
+    if (pool.length === 0) break;
+
+    const ex = pool[v % pool.length];
+    picked.push(ex);
+    usedHere.add(ex.name);
   }
-  if (pool.length === 0) return [anchorEx];
-
-  const need = Math.min(count - 1, pool.length);
-  const v    = Math.max(0, variant | 0);
-  const off  = (v * need) % pool.length;
-  const rest = [];
-  for (let i = 0; i < need; i++) rest.push(pool[(off + i) % pool.length]);
-  return [anchorEx].concat(rest);
+  return picked;
 }
 
 // 1日分の主力種目を先に押さえる。これを exclude の初期値にすることで、
@@ -465,6 +506,34 @@ function _reserveAnchors(parts) {
     if (a) used.add(a.name);
   });
   return used;
+}
+
+// この日・この強度で、組み替えを何回押すと最初のパターンに戻るか。
+// 「全Nパターン」の表示と、バリエーションが無い日にボタンを出さない判定に使う。
+// 上限内で一周しなかったときは 0（=不明）を返す。
+function menuVariantCycle(parts, cap) {
+  const sig = v => {
+    const used = _reserveAnchors(parts);
+    return parts.map(part => selectExercises(part, _defaultExerciseCount(part), v, used)
+      .map(ex => { used.add(ex.name); return ex.name; }).join(',')).join('|');
+  };
+  const base = sig(0);
+  const max  = cap || 60;
+  for (let v = 1; v <= max; v++) if (sig(v) === base) return v;
+  return 0;
+}
+
+// 分割全体のパターン数（各日の周期の最小公倍数）。1日でも不明なら 0。
+function splitVariantCycle(split) {
+  const days = SPLIT_PATTERNS[split] || [];
+  const gcd  = (a, b) => b ? gcd(b, a % b) : a;
+  let cycle  = 1;
+  for (const d of days) {
+    const c = menuVariantCycle(d.parts);
+    if (!c) return 0;
+    cycle = cycle * c / gcd(cycle, c);
+  }
+  return cycle;
 }
 
 function _defaultExerciseCount(part) {

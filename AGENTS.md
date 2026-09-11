@@ -52,10 +52,10 @@ Plain HTML/CSS/JS with no framework, no bundler, and no external dependencies. 2
 | `styles.css` (~1150行) | 全スタイル |
 | `js/state.js` (~350行) | `load()`/`save()`、`BODY_PARTS`、`PHASE_ROTATION` |
 | `js/speech.js` (~150行) | インターバル終了の音声アナウンス（既定OFF） |
-| `js/exercises.js` (~1080行) | `EXERCISES`、`VIDEO_LINKS`、`UL_DAYS`、`renderGuide()` |
+| `js/exercises.js` (~1310行) | `EXERCISES`、`PART_SLOTS`／`ANCHORS`（種目セレクション）、`VIDEO_LINKS`、`UL_DAYS`、`renderGuide()` |
 | `js/record.js` (~950行) | 記録画面、レストポーズ |
 | `js/analysis.js` (~560行) | `renderAnalysis()`、グラフ、カレンダー |
-| `js/app.js` (~840行) | `switchTab()`、ホーム・メニュー画面 |
+| `js/app.js` (~1060行) | `switchTab()`、ホーム・メニュー画面 |
 
 **ファイルを新規追加したら `sw.js` の `ASSETS` 配列にも登録する**（オフラインキャッシュの対象リスト）。
 
@@ -116,7 +116,7 @@ Bilateral flag (`bilateral: true`) enables separate left/right weight tracking i
 ## Key conventions
 
 - **No leg exercises** — カズヤさんの希望でスキップ済み。`プロジェクト２/ai-staff/knowledge/workout_app.md` を参照。
-- When adding a new exercise, add it to `EXERCISES`, add a `VIDEO_LINKS` entry if available, and add guide card HTML inside the `renderGuide()` function block for the appropriate body part (all three live in `js/exercises.js`).
+- When adding a new exercise, add it to `EXERCISES` **with a `pat` (動作パターン) tag** so the menu rotation can place it in the right slot, add a `VIDEO_LINKS` entry if available, and add guide card HTML inside the `renderGuide()` function block for the appropriate body part (all three live in `js/exercises.js`).
 - When adding a new screen or major feature, follow the existing pattern: static container div → `render*()` function called from `switchTab()`.
 - Commit messages use `feat:` / `fix:` / `style:` prefixes (see git log).
 

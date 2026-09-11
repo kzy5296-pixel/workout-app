@@ -360,6 +360,8 @@ function renderMenu() {
     // これがないと「そろそろ組み替えどき」が永久に出ない。
     let mv = getMenuVariant();
     if (mv.since === null) { saveMenuVariant(mv.n); mv = getMenuVariant(); }
+    const cycle = splitVariantCycle(selectedSplit);      // 0 = 周期不明
+    const shown = cycle ? (mv.n % cycle) + 1 : mv.n + 1;
     const weeks = menuVariantWeeks();
     const stale = weeks !== null && weeks >= 4
       ? `<div style="font-size:13px;color:#ffb84d;margin-top:8px;">⚠ このパターンで${weeks}週目です。そろそろ組み替えどき</div>`
@@ -367,15 +369,21 @@ function renderMenu() {
     const resetBtn = mv.n > 0
       ? `<button class="btn btn-outline btn-sm mt-12" onclick="resetMenuVariant()">↩︎ 最初のパターンに戻す</button>`
       : '';
+    // 候補が枠の数しか無い分割・強度では押しても何も変わらないのでボタンを出さない
+    const rotateBtn = cycle === 1
+      ? `<div style="font-size:13px;color:#ffb84d;margin-top:8px;">この分割＋強度は候補が枠ちょうどなので、組み替えできる余地がありません</div>`
+      : `<button class="btn btn-primary btn-sm mt-12" onclick="rotateMenuVariant()">🔄 補助種目を組み替える</button>`;
     rotationCardHTML = `
       <div class="card">
         <div class="card-title">🔄 種目バリエーション</div>
-        <div style="font-size:15px;font-weight:700;color:#e8ff00;margin-bottom:6px;">パターン ${mv.n + 1}</div>
+        <div style="font-size:15px;font-weight:700;color:#e8ff00;margin-bottom:6px;">
+          パターン ${shown}${cycle > 1 ? ` <span style="color:#666;font-size:13px;font-weight:600;">/ 全${cycle}</span>` : ''}
+        </div>
         <div style="font-size:13px;color:#666;line-height:1.6;">
-          押すたびに補助種目が入れ替わります。主力種目（各部位の1種目目）は固定なので、重量の伸びは途切れません。
+          押すたびに補助種目が入れ替わります。枠ごとに役割（胸＝プレス2＋フライ／背中＝デッド系＋引く動作2／脚＝スクワット2＋股関節＋四頭＋ハム＋カーフ／肩＝プレス＋側部＋後部）を決めてあるので、<b style="color:#aaa;">どのパターンでも狙う部位が抜けません</b>。主力種目は固定なので重量の伸びも途切れません。
         </div>
         ${stale}
-        <button class="btn btn-primary btn-sm mt-12" onclick="rotateMenuVariant()">🔄 補助種目を組み替える</button>
+        ${rotateBtn}
         ${resetBtn}
       </div>`;
   }
@@ -481,12 +489,15 @@ function renderMenu() {
     ${daysHTML}`;
 }
 
-// 補助種目を1パターン進める。主力種目は selectExercises 側で固定されている。
+// 補助種目を1パターン進める。役割（PART_SLOTS）ごとに独立して回るので、
+// 主力種目と各枠の狙いは変わらないまま中身だけ入れ替わる。
 function rotateMenuVariant() {
-  const mv = getMenuVariant();
+  const mv    = getMenuVariant();
+  const cycle = splitVariantCycle(selectedSplit);
   saveMenuVariant(mv.n + 1);
   renderMenu();
-  showToast(`🔄 パターン ${mv.n + 2} に組み替えました`);
+  const shown = cycle ? ((mv.n + 1) % cycle) + 1 : mv.n + 2;
+  showToast(`🔄 パターン ${shown}${cycle > 1 ? ` / 全${cycle}` : ''} に組み替えました`);
 }
 
 function resetMenuVariant() {
