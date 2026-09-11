@@ -238,7 +238,6 @@ function renderSetRow(exIdx, si, set, bilateral) {
   const rpActive = !!set.restPause;
   const rpPanel  = rpActive ? renderRPPanel(exIdx, si, set) : '';
   const stepLabel = set.note ? `<span style="font-size:10px;color:#ff6b6b;font-weight:800;min-width:18px;">${set.note}</span>` : '';
-  const warmupActive = !!set.warmup;
   const rm1 = estimateRM1(set.weight, set.reps);
   const rm1HTML = `<div id="rm1_${exIdx}_${si}" style="font-size:10px;color:#888;padding:2px 8px 4px 44px;">${rm1 ? `推定1RM ${rm1}kg` : ''}</div>`;
   const rirHTML = renderRIRRow(exIdx, si, set);
@@ -246,7 +245,7 @@ function renderSetRow(exIdx, si, set, bilateral) {
   const diffHTML = renderDiffChip(exIdx, si, set);
   return `
     <div class="set-row-wrap" id="setWrap_${exIdx}_${si}" style="margin-bottom:8px;">
-      <div class="set-row ${rowClass} ${warmupActive ? 'warmup' : ''}" id="setRow_${exIdx}_${si}" style="margin-bottom:0;">
+      <div class="set-row ${rowClass}" id="setRow_${exIdx}_${si}" style="margin-bottom:0;">
         <div class="set-num">${set.note ? '' : `Set${si+1}`}</div>
         ${stepLabel}
         <input type="number" class="weight-input"
@@ -258,9 +257,6 @@ function renderSetRow(exIdx, si, set, bilateral) {
           id="r_${exIdx}_${si}"
           value="${set.reps || ''}" placeholder="rep" min="0"
           oninput="updateSetField(${exIdx},${si},'reps',this.value)" ${rpActive ? 'readonly style="opacity:0.6;"' : ''}>
-        <button class="rp-toggle-btn ${warmupActive ? 'active' : ''}" style="${warmupActive ? 'background:#4fc3f722;border-color:#4fc3f7;color:#4fc3f7;box-shadow:0 0 8px #4fc3f755;' : ''}"
-          title="ウォームアップ（集計から除外）"
-          onclick="toggleWarmup(${exIdx},${si})">W</button>
         <button class="rp-toggle-btn ${rpActive ? 'active' : ''}"
           title="レストポーズ法（Phase 2推奨）"
           onclick="toggleRestPause(${exIdx},${si})">⚡</button>
@@ -292,10 +288,10 @@ function renderDiffChip(exIdx, si, set) {
   return `<div id="diff_${exIdx}_${si}" style="font-size:10px;padding:2px 8px 4px 44px;color:${color};">${label}</div>`;
 }
 
-// RIR（あと何回いけたか）選択行。完了済み・非ウォームアップのセットのみ表示。
+// RIR（あと何回いけたか）選択行。完了済みのセットのみ表示。
 // id="rir_..." のラッパーは常に存在させ、中身だけ出し分ける（toggleSetDoneが行全体を再描画しないため）
 function renderRIRRow(exIdx, si, set) {
-  if (!set.done || set.warmup) return `<div id="rir_${exIdx}_${si}"></div>`;
+  if (!set.done) return `<div id="rir_${exIdx}_${si}"></div>`;
   const opts = [{ val: 0, label: '0' }, { val: 1, label: '1' }, { val: 2, label: '2+' }];
   const btns = opts.map(o => {
     const active = set.rir === o.val;
@@ -331,7 +327,7 @@ function toggleFailed(exIdx, si) {
 
 // ドロップセット（完了セットの直後に重量を落として続けた分）。最大3件、非bilateralのみ
 function renderDropRow(exIdx, si, set) {
-  if (!set.done || set.warmup) return `<div id="drop_${exIdx}_${si}"></div>`;
+  if (!set.done) return `<div id="drop_${exIdx}_${si}"></div>`;
   const drops = set.drops || [];
   const rows = drops.map((d, di) => `
     <div style="display:flex;align-items:center;gap:6px;">
@@ -387,17 +383,6 @@ function updateDropField(exIdx, si, di, field, val) {
   if (!set.drops || !set.drops[di]) return;
   set.drops[di][field] = val;
   saveActiveSession(activeSession);
-  updateLiveStats();
-}
-
-function toggleWarmup(exIdx, si) {
-  if (!activeSession) return;
-  const set = activeSession.exercises[exIdx].sets[si];
-  set.warmup = !set.warmup;
-  saveActiveSession(activeSession);
-  const wrap = document.getElementById('setWrap_' + exIdx + '_' + si);
-  const ex   = activeSession.exercises[exIdx];
-  if (wrap) wrap.outerHTML = renderSetRow(exIdx, si, set, ex.bilateral);
   updateLiveStats();
 }
 
@@ -950,6 +935,8 @@ function addMemoChip(exIdx, text) {
   updateExerciseMemo(exIdx, next);
 }
 
+// set.warmup（Wボタン）は廃止済み。新しいセットには付かないが、過去の記録には
+// 残っているので、集計・PR判定・CSV出力の `!s.warmup` は当時の数字を保つために残してある。
 function setVolume(s, bilateral) {
   if (!s.done || s.warmup) return 0;
   if (bilateral) {
